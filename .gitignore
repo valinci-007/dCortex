@@ -22,3 +22,14 @@ build/
 
 # Logs
 *.log
+
+# Derived artifacts (SQLite built from data/*.json)
+var/
+*.db
+*.db-journal
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/

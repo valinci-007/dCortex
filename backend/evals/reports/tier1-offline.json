@@ -1,0 +1,277 @@
+{
+  "mode": "offline",
+  "started_utc": "2026-09-04T11:07:41Z",
+  "passed": 16,
+  "total": 16,
+  "by_tier": {
+    "1": {
+      "passed": 16,
+      "total": 16
+    }
+  },
+  "latency": {
+    "p50_ms": 0.3,
+    "p95_ms": 1.1,
+    "max_ms": 1.5
+  },
+  "rows": [
+    {
+      "question_id": "Q01",
+      "tier": 1,
+      "prompt": "Who is on reserve at BLR on 2026-09-15, and what are their on-call windows?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.9,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_reserves"
+      ],
+      "answer": "12 crew on reserve at BLR on 2026-09-15:\n- C-1329 \u2014 Cabin Crew (P. Pillai), on call 04:00\u201316:00Z, reachable in 45 min, ratings A320/ATR72\n- C-2111 \u2014 Senior Cabin Crew (A. Gupta), on call 04:00\u201316:00Z, reachable in 90 min, ratings A320/ATR72\n- C-2248 \u2014 Cabin Crew (H. Reddy), on call 04:00\u201316:00Z, reachable in 60 min, ratings A320/ATR72\n- C-3305 \u2014 Captain (V. Menon), on call 00:00\u201305:30Z, reachable in 45 min, ratings A320\n- C-3310 \u2014 Captain (D. Reddy), on call 06:00\u201318:00Z, reachable in 45 min, ratings A320\n- C-3311 \u2014 First Officer (K. Rao), on call 06:00\u201318:00Z, reachable in 45 min, ratings A320\n- C-3312 \u2014 First Officer (P. Sharma), on call 00:00\u201312:00Z, reachable in 60 min, ratings A320\n- C-3315 \u2014 Captain (M. Pillai), on call 03:00\u201315:00Z, reachable in 45 min, ratings ATR72\n- C-3316 \u2014 First Officer (N. Verma), on call 03:00\u201315:00Z, reachable in 45 min, ratings ATR72\n- C-3677 \u2014 Senior Cabin Crew (M. Iyer), on call 04:00\u201316:00Z, reachable in 45 min, ratings A320/ATR72\n- C-4809 \u2014 Cabin Crew (M. Das), on call 00:00\u201312:00Z, reachable in 45 min, ratings A320/ATR72\n- C-5418 \u2014 Cabin Crew (S. Das), on call 04:00\u201316:00Z, reachable in 45 min, ratings A320/ATR72\n\nReasoning:\n- list_reserves(BLR, 2026-09-15) from reserve_pool.json joined to crew.json\n- a reserve may be called out only if the required report time falls inside their on-call window (RULE-BASE-07 for base)\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q02",
+      "tier": 1,
+      "prompt": "As of the snapshot, how many duty hours has C-1042 accrued in the 7 calendar days ending 2026-09-14, and how much headroom does that leave under RULE-DUTY-02?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 1.5,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_crew",
+        "get_duty_clock"
+      ],
+      "answer": "C-1042 (A. Nair, Captain, base BLR) has accrued 20.93h of duty in the 7 calendar days ending 2026-09-14 (window 2026-09-08 \u2192 2026-09-14), leaving 39.07h headroom under RULE-DUTY-02 (limit 60h). Block hours in the 28 days ending 2026-09-14: 64.27h, headroom 35.73h under RULE-FLT-03 (limit 100h). Earliest next report under RULE-REST-04: 2026-09-13T02:00:00Z.\n\nReasoning:\n- get_duty_clock(C-1042) \u2014 sums from duty_clocks.json daily_history as of 2026-09-14T18:00:00Z\n- headroom = limit \u2212 accrued (computed by the tool, not estimated)\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q03",
+      "tier": 1,
+      "prompt": "Which flights depart DEL on 2026-09-15?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.3,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "answer": "1 flight(s) departing DEL on 2026-09-15: DX402.\n- DX402 DEL\u2192BLR dep 06:00Z arr 08:45Z, VT-DXA (162 seats)\n\nReasoning:\n- list_flights(departing DEL on 2026-09-15) filtered flights.json; all times UTC\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q04",
+      "tier": 1,
+      "prompt": "List all certifications expiring within 30 days of 2026-09-15.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.6,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_expiring_certifications"
+      ],
+      "answer": "6 certification(s) expire within 30 days of 2026-09-15 (to 2026-10-15):\n- C-5417 (Cabin Crew): recurrent_training expires 2026-09-17\n- C-2087 (Captain): licence expires 2026-09-18\n- C-2091 (Captain): medical_class1 expires 2026-09-23\n- C-3116 (First Officer): dangerous_goods expires 2026-09-28\n- C-5020 (First Officer): recurrent_training expires 2026-10-03\n- C-2993 (First Officer): medical_class1 expires 2026-10-08\n\nReasoning:\n- list_expiring_certifications(2026-09-15, 30 days) over certifications.json; RULE-CERT-06 applies from the expiry date\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q05",
+      "tier": 1,
+      "prompt": "Which aircraft operates DX412 on 2026-09-15, and how many seats does it have?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.2,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_flight"
+      ],
+      "answer": "DX412 on 2026-09-15 is operated by VT-DXC (A320, 162 seats), BLR\u2192BOM departing 07:00Z and arriving 08:45Z, block 1.75h. Operated under pairing P-2291 (6 crew).\n\nReasoning:\n- get_flight(DX412, 2026-09-15) from flights.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q06",
+      "tier": 1,
+      "prompt": "What is C-3310's reserve on-call window and reachability?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.3,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_crew"
+      ],
+      "answer": "C-3310 is D. Reddy, Captain based at BLR, rated A320, seniority 9, reachable in 45 minutes, status active. Reserve on-call window 06:00\u201318:00Z on 7 days this week. No rostered pairings this week. Disruption-risk score 0.17.\n\nReasoning:\n- get_crew(C-3310) from crew.json, reserve_pool.json, rosters.json, risk_signals.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q07",
+      "tier": 1,
+      "prompt": "What is C-2210's base and rating?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.1,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_crew"
+      ],
+      "answer": "C-2210 is S. Kapoor, Captain based at DEL, rated A320, seniority 2, reachable in 60 minutes, status active. Reserve on-call window 03:00\u201315:00Z on 7 days this week. No rostered pairings this week. Disruption-risk score 0.03.\n\nReasoning:\n- get_crew(C-2210) from crew.json, reserve_pool.json, rosters.json, risk_signals.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q08",
+      "tier": 1,
+      "prompt": "Which crew are assigned to pairing P-2291, and in what roles?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.3,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_pairing"
+      ],
+      "answer": "Pairing P-2291 operates VT-DXC over 2 day(s) with 6 crew:\n- C-1042 \u2014 Captain (A. Nair)\n- C-1694 \u2014 First Officer (S. Menon)\n- C-3005 \u2014 Senior Cabin Crew (H. Chandra)\n- C-4395 \u2014 Cabin Crew (V. Rao)\n- C-4273 \u2014 Cabin Crew (P. Menon)\n- C-1873 \u2014 Cabin Crew (K. Joshi)\n\nDuty days:\n- 2026-09-15: DX412, DX413, DX588 (BLR\u2192DEL), report 06:00Z, release 15:30Z, 9.50h duty, 3 sectors\n- 2026-09-16: DX589, DX590, DX591 (DEL\u2192BLR), report 04:00Z, release 14:45Z, 10.75h duty, 3 sectors\n\nReasoning:\n- get_pairing(P-2291) from rosters \u2014 crew roles and duty days as rostered\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q09",
+      "tier": 1,
+      "prompt": "Which flights fly BLR\u2192BOM on 2026-09-17?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.2,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "answer": "2 flight(s) BLR\u2192BOM on 2026-09-17: DX412, DX431.\n- DX431 BLR\u2192BOM dep 03:30Z arr 05:15Z, VT-DXD (162 seats)\n- DX412 BLR\u2192BOM dep 07:00Z arr 08:45Z, VT-DXC (162 seats)\n\nReasoning:\n- list_flights(BLR\u2192BOM on 2026-09-17) filtered flights.json; all times UTC\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q10",
+      "tier": 1,
+      "prompt": "How many flights operate on 2026-09-16 in total?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.3,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "answer": "21 flight(s) on 2026-09-16: DX401, DX402, DX403, DX404, DX421, DX422, DX423, DX424, DX431, DX432, DX433, DX434, DX451, DX452, DX453, DX454, DX461, DX462, DX589, DX590, DX591.\n- DX401 BLR\u2192DEL dep 02:30Z arr 05:15Z, VT-DXA (162 seats)\n- DX421 BLR\u2192CCU dep 03:00Z arr 05:30Z, VT-DXB (162 seats)\n- DX431 BLR\u2192BOM dep 03:30Z arr 05:15Z, VT-DXD (162 seats)\n- DX451 BLR\u2192COK dep 04:00Z arr 05:15Z, VT-DXE (72 seats)\n- DX461 BLR\u2192HYD dep 05:00Z arr 06:30Z, VT-DXF (72 seats)\n- DX589 DEL\u2192BLR dep 05:00Z arr 07:45Z, VT-DXC (162 seats)\n- DX402 DEL\u2192BLR dep 06:00Z arr 08:45Z, VT-DXA (162 seats)\n- DX432 BOM\u2192BLR dep 06:00Z arr 07:45Z, VT-DXD (162 seats)\n- DX452 COK\u2192BLR dep 06:00Z arr 07:15Z, VT-DXE (72 seats)\n- DX422 CCU\u2192BLR dep 06:15Z arr 08:45Z, VT-DXB (162 seats)\n- DX462 HYD\u2192BLR dep 07:15Z arr 08:45Z, VT-DXF (72 seats)\n- DX453 BLR\u2192MAA dep 08:00Z arr 09:00Z, VT-DXE (72 seats)\n- DX433 BLR\u2192GOI dep 08:30Z arr 09:45Z, VT-DXD (162 seats)\n- DX590 BLR\u2192CCU dep 08:30Z arr 11:00Z, VT-DXC (162 seats)\n- DX403 BLR\u2192MAA dep 09:30Z arr 10:30Z, VT-DXA (162 seats)\n- DX423 BLR\u2192HYD dep 09:30Z arr 10:45Z, VT-DXB (162 seats)\n- DX454 MAA\u2192BLR dep 09:45Z arr 10:45Z, VT-DXE (72 seats)\n- DX434 GOI\u2192BLR dep 10:30Z arr 11:45Z, VT-DXD (162 seats)\n- DX404 MAA\u2192BLR dep 11:15Z arr 12:15Z, VT-DXA (162 seats)\n- DX424 HYD\u2192BLR dep 11:30Z arr 12:45Z, VT-DXB (162 seats)\n- DX591 CCU\u2192BLR dep 11:45Z arr 14:15Z, VT-DXC (162 seats)\n\nReasoning:\n- list_flights(on 2026-09-16) filtered flights.json; all times UTC\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q11",
+      "tier": 1,
+      "prompt": "How many captains are based at DEL, and who are they?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.1,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_crew"
+      ],
+      "answer": "1 Captain based at DEL:\n- C-2210 (S. Kapoor), ratings A320, status active\n\nReasoning:\n- list_crew(Captain based at DEL) from crew.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q12",
+      "tier": 1,
+      "prompt": "What is the longest block time in the schedule, and which flights have it?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 1.0,
+      "llm_calls": 2,
+      "tool_calls": [
+        "schedule_stats"
+      ],
+      "answer": "The longest block time in the schedule is 2.75h, flown by DX401, DX402, DX588, DX589. The shortest is 1.0h (DX403, DX404, DX453, DX454). The week has 147 flights across 8 stations with 6 aircraft.\n\nReasoning:\n- schedule_stats \u2014 max/min of block_hours over flights.json (computed by the tool)\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q13",
+      "tier": 1,
+      "prompt": "What is C-2087's rank, and total flight hours over the 28 days ending 2026-09-14?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.3,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_crew",
+        "get_duty_clock"
+      ],
+      "answer": "C-2087 (R. Iyer, Captain, base BLR) has accrued 51.83h of duty in the 7 calendar days ending 2026-09-14 (window 2026-09-08 \u2192 2026-09-14), leaving 8.17h headroom under RULE-DUTY-02 (limit 60h). Block hours in the 28 days ending 2026-09-14: 23.50h, headroom 76.50h under RULE-FLT-03 (limit 100h). Earliest next report under RULE-REST-04: 2026-09-15T02:00:00Z.\n\nReasoning:\n- get_duty_clock(C-2087) \u2014 sums from duty_clocks.json daily_history as of 2026-09-14T18:00:00Z\n- headroom = limit \u2212 accrued (computed by the tool, not estimated)\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q14",
+      "tier": 1,
+      "prompt": "Which stations does the network serve nonstop from BLR?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.5,
+      "llm_calls": 2,
+      "tool_calls": [
+        "list_routes"
+      ],
+      "answer": "From BLR the network serves 7 stations nonstop: BOM, CCU, COK, DEL, GOI, HYD, MAA. Flights per destination this week: BOM (10), CCU (11), COK (7), DEL (10), GOI (7), HYD (14), MAA (14).\n\nReasoning:\n- list_routes(BLR) \u2014 distinct arr_station where dep_station=BLR in flights.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q15",
+      "tier": 1,
+      "prompt": "Who is the Senior Cabin Crew on VT-DXB's pairing on 2026-09-16?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 1.1,
+      "llm_calls": 2,
+      "tool_calls": [
+        "find_pairings"
+      ],
+      "answer": "On P-2210 (VT-DXB, 2026-09-16) the Senior Cabin Crew is C-3171 (P. Chandra).\n\nReasoning:\n- find_pairings(VT-DXB on 2026-09-16) from rosters.json\n\n(offline mode \u2014 deterministic router, no language model)"
+    },
+    {
+      "question_id": "Q16",
+      "tier": 1,
+      "prompt": "What is the disruption-risk score for C-1042 and what drives it?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 0.1,
+      "llm_calls": 2,
+      "tool_calls": [
+        "get_risk_signal"
+      ],
+      "answer": "C-1042 has a disruption-risk score of 0.78 (as of 2026-09-14T18:00:00Z). Drivers: short-rest pattern over last 14 days; two fatigue reports this month.\n\nReasoning:\n- get_risk_signal \u2014 pre-computed signal from risk_signals.json (provided input, not computed here)\n\n(offline mode \u2014 deterministic router, no language model)"
+    }
+  ]
+}
