@@ -108,3 +108,22 @@ def test_controller_style_timestamps_and_enumeration_spellings():
     answer = "C-2091 — medical class 1, expires 2026-09-23; C-3116 — dangerous goods, 2026-09-28"
     assert grade(answer, {"types": ["medical_class1", "dangerous_goods"]}).passed
     assert not grade(answer, {"types": ["medical_class2"]}).passed
+
+
+def test_confidence_labels_follow_grounding_and_correction():
+    from crew_ops_advisor.agent.grounding import GroundingResult
+    from crew_ops_advisor.agent.orchestrator import Answer, confidence_label
+
+    def answer(**kw):
+        base = dict(
+            question="q", text="a", mode="m", refused=False, error=None, trace=(), elapsed_ms=1.0
+        )
+        return Answer(**{**base, **kw})
+
+    ok = GroundingResult(checked=3, unsupported=())
+    bad = GroundingResult(checked=3, unsupported=("41200",))
+    assert confidence_label(answer(), ok, corrected=False) == "verified"
+    assert confidence_label(answer(), ok, corrected=True) == "verified after correction"
+    assert confidence_label(answer(), bad, corrected=True) == "unverified"
+    assert confidence_label(answer(refused=True), None, corrected=False) == "declined"
+    assert confidence_label(answer(error="boom"), None, corrected=False) == "error"

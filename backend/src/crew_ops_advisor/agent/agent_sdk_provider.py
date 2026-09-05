@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from crew_ops_advisor.agent.prompts import REFUSAL_PHRASE
-from crew_ops_advisor.agent.types import LLMError, LoopRun, TraceStep
+from crew_ops_advisor.agent.types import EventSink, LLMError, LoopRun, TraceStep
 from crew_ops_advisor.tools import ToolRegistry
 
 DEFAULT_MODEL = "claude-opus-5"
@@ -68,19 +68,37 @@ class AgentSDKProvider:
     # ---- public ------------------------------------------------------------
 
     def run(
-        self, question: str, *, system: str, registry: ToolRegistry, resume: str | None = None
+        self,
+        question: str,
+        *,
+        system: str,
+        registry: ToolRegistry,
+        resume: str | None = None,
+        on_event: EventSink | None = None,
     ) -> LoopRun:
-        return _run_sync(self.run_async(question, system=system, registry=registry, resume=resume))
+        return _run_sync(
+            self.run_async(
+                question, system=system, registry=registry, resume=resume, on_event=on_event
+            )
+        )
 
     async def run_async(
-        self, question: str, *, system: str, registry: ToolRegistry, resume: str | None = None
+        self,
+        question: str,
+        *,
+        system: str,
+        registry: ToolRegistry,
+        resume: str | None = None,
+        on_event: EventSink | None = None,
     ) -> LoopRun:
         sdk = self._sdk
         trace: list[TraceStep] = []
-        tools = build_sdk_tools(registry, trace, sdk.tool)
+        emit = on_event or (lambda event: None)
+        tools = build_sdk_tools(registry, trace, sdk.tool, on_event=emit)
         server = sdk.create_sdk_mcp_server(name=SERVER_NAME, version="1.0.0", tools=tools)
         options = sdk.ClaudeAgentOptions(
             system_prompt=system,
+            include_partial_messages=on_event is not None,  # text deltas for the live UI
             tools=[],  # no built-in Claude Code tools: the registry is the only data access
             allowed_tools=[mcp_tool_name(n) for n in registry.names()],
             mcp_servers={SERVER_NAME: server},
@@ -106,8 +124,13 @@ class AgentSDKProvider:
                             texts.append(block.text)
                         elif isinstance(block, sdk.ToolUseBlock):
                             requested.append(block.name)
+                            emit(tool_call_event(block.name, block.input))
                 elif isinstance(message, sdk.ResultMessage):
                     result = message
+                elif on_event is not None and isinstance(message, sdk.StreamEvent):
+                    delta = _text_delta(message.event)
+                    if delta:
+                        emit({"type": "text", "text": delta})
         except (sdk.CLINotFoundError, sdk.CLIConnectionError) as exc:
             raise LLMError(f"Claude Agent SDK cannot reach the Claude Code CLI: {exc}") from exc
         except sdk.ProcessError as exc:
@@ -164,10 +187,16 @@ class AgentSDKProvider:
 # ---- tools ---------------------------------------------------------------
 
 
-def build_sdk_tools(registry: ToolRegistry, trace: list[TraceStep], tool_decorator) -> list[Any]:
+def build_sdk_tools(
+    registry: ToolRegistry,
+    trace: list[TraceStep],
+    tool_decorator,
+    *,
+    on_event: EventSink | None = None,
+) -> list[Any]:
     """Wrap every registry tool as an SDK MCP tool whose handler calls the registry and
     records the trace entry. The registry's own validation and error mapping apply."""
-    from crew_ops_advisor.agent.orchestrator import tool_step
+    from crew_ops_advisor.agent.orchestrator import tool_done_event, tool_step
 
     tools = []
     for name in registry.names():
@@ -175,7 +204,10 @@ def build_sdk_tools(registry: ToolRegistry, trace: list[TraceStep], tool_decorat
 
         async def handler(args: dict[str, Any], _name: str = name) -> dict[str, Any]:
             outcome = registry.call(_name, args or {})
-            trace.append(tool_step(_name, args or {}, outcome))
+            step = tool_step(_name, args or {}, outcome)
+            trace.append(step)
+            if on_event is not None:
+                on_event(tool_done_event(step))
             reply: dict[str, Any] = {"content": [{"type": "text", "text": outcome.content()}]}
             if not outcome.ok:
                 reply["is_error"] = True
@@ -186,6 +218,22 @@ def build_sdk_tools(registry: ToolRegistry, trace: list[TraceStep], tool_decorat
 
 
 # ---- helpers -------------------------------------------------------------
+
+
+def tool_call_event(sdk_tool_name: str, arguments: Any) -> dict[str, Any]:
+    from crew_ops_advisor.agent.orchestrator import tool_call_event as _event
+
+    prefix = f"mcp__{SERVER_NAME}__"
+    name = sdk_tool_name[len(prefix) :] if sdk_tool_name.startswith(prefix) else sdk_tool_name
+    return _event(name, arguments if isinstance(arguments, dict) else {})
+
+
+def _text_delta(event: dict[str, Any]) -> str:
+    """The text of a raw API stream event, if it carries any."""
+    if event.get("type") != "content_block_delta":
+        return ""
+    delta = event.get("delta") or {}
+    return delta.get("text", "") if delta.get("type") == "text_delta" else ""
 
 
 def _usage(raw: Any) -> dict[str, int]:

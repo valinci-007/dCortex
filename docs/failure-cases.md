@@ -87,3 +87,23 @@ Not tried: streaming partial answers to the UI, capping tool result size for Tie
   misses the report is "not callable" rather than "illegal".
 - Cabin-crew complements are assumed per aircraft type (A320: 1/1/1/3, ATR72: 1/1/1/1) from
   the roster; a real carrier's minimums vary by configuration.
+
+## 8. The scenario model is deliberately shallow (limitation)
+
+**What it does.** A conversation's scenario records crew declared unavailable and covers
+applied; the tools read the roster through an overlay, so chained questions ("now the
+cover is sick too") are answered against the updated roster, and a cover is committed only
+after the seven-rule check passes (ADR-0018 §3).
+
+**Where it stops.** Delays and station closures are assessed within one question but do
+not persist as scenario state, so "DX412 is delayed two hours *and* C-1042 is sick" is two
+questions whose second answer does not know about the first delay. A pairing's crew list
+reads as the roster after all edits, while per-day membership is exact only through duty
+periods — a mid-pairing handover shows the new member for the whole pairing in a plain
+"who is on P-2291" answer. Partial covers of a multi-day pairing remain under-modelled
+(case 2). We chose the shallow model because it is the one we could make byte-for-byte
+identical to the baseline when empty, which the suite and the evals pin.
+
+**How we know.** `tests/integration/test_scenario.py` drives the sick-call → cover →
+cover-sick chain and the pass-through property; the eval reports were re-run with the
+scenario-aware registry (`evals/reports/tier123-agent-sdk-v3.*`).

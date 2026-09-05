@@ -89,10 +89,29 @@ reasoning plus every excluded candidate with its reason; joint plans when severa
 out (no one assigned twice, cheapest total); delay recovery (fly the legal prefix, re-crew
 the tail with a reserve set, or cancel); callout notification drafts; a morning briefing.
 
+**Scenario workspace — chained disruptions and "make the call" (ADR-0018).** Each
+conversation keeps the desk's working situation. "C-1042 called in sick from tomorrow —
+record it" declares him unavailable and returns the impact; "what should I do?" ranks the
+covers; "go with option 1" commits the callout — after the full seven-rule check, and only
+if it is legal; "who is still on reserve?" now answers without the crew member just called
+out; "now C-3310 is sick too" reopens the vacancy with neither man offered. The scenario is
+shown above the composer, persists with the chat, and can be reset. Persistent delays and
+station closures are not scenario state yet (delay recovery works within one question).
+
+**Proactive watchlist.** Before anyone asks: crew within 10 h of the 7-day duty limit or
+10 h of the 28-day block limit tomorrow, certifications lapsing within a week — flagged when
+a duty is rostered after the expiry — the highest disruption-risk crew, and any pairing
+days left vacant by the active scenario. Deterministic, no model call; on the home screen,
+in the header, and as a `watchlist` tool the model can consult.
+
 **Always.** A visible "Reasoning" section, a machine-readable trace of every tool call with
 arguments, results and timings, a grounding check that every id, date and figure in the
 answer came from tool evidence, and an honest refusal ("I can't answer that reliably")
-when no tool covers the question.
+when no tool covers the question. Every answer carries a **confidence label** — verified ·
+verified after correction · unverified · declined — and every Tier-3 option the tightest
+rule headroom it leaves ("RULE-DUTY-02 headroom 10.3 h on 2026-09-20"). Answers **stream**:
+each lookup appears in the controller's words the moment it runs, and the text as it is
+written, with the verified answer replacing it on completion.
 
 **Voice.** Press the microphone to speak a question: the audio is transcribed by a
 configurable provider — local Whisper today (no key), **Sarvam AI** at the event (set
@@ -114,7 +133,7 @@ controller ──► orchestrator ──► language model (plans, narrates)    
                    │   ▲
                    │   │  typed tool calls / JSON results  ◄── the only crossing
                    ▼   │
-             tool registry (33 tools, JSON-schema validated)              ◄── deterministic
+             tool registry (38 tools, JSON-schema validated)              ◄── deterministic
              ├─ query tools (T1)          ─► SQLite data layer (built from data/*.json)
              ├─ simulation tools (T2)     ─► rules engine: 7 rules as pure functions → evidence
              └─ recommendation tools (T3) ─► candidates × legality × cost model, ranked

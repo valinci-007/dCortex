@@ -141,7 +141,7 @@ class ScriptedLoopProvider:
         self.fail = fail
         self.calls = []
 
-    def run(self, question, *, system, registry, resume=None):
+    def run(self, question, *, system, registry, resume=None, on_event=None):
         self.calls.append({"question": question, "resume": resume, "system": system})
         if self.fail:
             raise self.fail
@@ -268,7 +268,7 @@ def test_loop_provider_resumes_or_falls_back_to_a_recap(store, registry):
     from crew_ops_advisor.agent import LoopRun
 
     class ResumeAwareProvider(ScriptedLoopProvider):
-        def run(self, question, *, system, registry, resume=None):
+        def run(self, question, *, system, registry, resume=None, on_event=None):
             self.calls.append({"question": question, "resume": resume})
             if resume == "gone":
                 raise LLMError("session not found")
@@ -360,3 +360,24 @@ def test_minimal_pii_mode_hides_names_from_the_model_but_not_from_the_offline_ro
     offline = Advisor(store, registry, OfflineProvider(store), pii=guard)
     text = offline.ask(f"What is {crew_id} base and rating?").text
     assert name in text
+
+
+def test_loop_provider_grounding_correction_uses_the_streaming_signature(store, registry):
+    from crew_ops_advisor.agent import LoopRun
+    from crew_ops_advisor.agent.orchestrator import tool_step
+
+    step = tool_step("get_costs", {}, registry.call("get_costs", {}))
+    provider = ScriptedLoopProvider(
+        [
+            LoopRun(
+                text="Callout costs 99999 INR.", trace=(step,), session_id="s1"
+            ),  # unsupported figure
+            LoopRun(text="Reserve callout for a pilot costs 18500 INR.", trace=(), session_id="s1"),
+        ]
+    )
+    advisor = Advisor(store, registry, provider)
+    events = []
+    answer = advisor.ask("What does a reserve callout cost?", on_event=events.append)
+    assert len(provider.calls) == 2 and "Rewrite" in provider.calls[1]["question"]
+    assert answer.confidence == "verified after correction" and "18500" in answer.text
+    assert any(e["type"] == "phase" for e in events)

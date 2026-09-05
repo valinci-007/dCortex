@@ -23,6 +23,7 @@ Every significant decision gets an entry: context → options considered → dec
 | [ADR-0015](#adr-0015) | Separate `backend/` and `frontend/` projects; persistent conversations without a user model | **Accepted** | 2026-09-04 |
 | [ADR-0016](#adr-0016) | Voice interface with configurable speech providers (local Whisper now, Sarvam AI at the event, browser fallback) | **Accepted** | 2026-09-04 |
 | [ADR-0017](#adr-0017) | PII minimisation at the tool boundary (`CREW_OPS_PII_MODE=minimal`) with a console audit trail of everything sent to the model | **Accepted** | 2026-09-05 |
+| [ADR-0018](#adr-0018) | Tier 3 completion: streamed progress, proactive watchlist, scenario workspace (chained disruptions, "make the call"), graded confidence | **Accepted** | 2026-09-05 |
 
 ---
 
@@ -454,6 +455,58 @@ the model reasons over pseudonyms, which costs nothing on the sample questions (
 What remains pseudonymised rather than removed — certificate dates, reachability, risk
 scores — is what the desk's questions are about. The audit console is verbose by design and
 should be silenced (`=0`) outside demos and review.
+
+---
+
+## ADR-0018 — Tier 3 completion: streaming, watchlist, scenario workspace, confidence
+**Status: Accepted** (team decision, Rajesh, 2026-09-05 — build in this order)
+
+**Context.** The Tier 3 the brief defines (ranked, rule-compliant options with cost, legality,
+reachability, reasoning; notification drafts) is built and evaluated. What remains are the
+brief's optional enhancements around it: proactive alerting, chained disruptions,
+confidence signalling — and the performance line "a 45-second response is not a decision
+aid", which Tier 3 (14–42 s) brushes against.
+
+**1. Streamed progress instead of compacted evidence.** The plan was to shrink Tier-3 tool
+results before they reach the model. Measured first: `recommend_cover` is ~7 KB and each
+option's evidence is ~30 characters — there is nothing to compact; the time is the model's
+turns (~5 s each) plus writing a 1–2 KB answer, and the slow questions are the ones with 3–5
+tool calls. So the fix is perceived latency: the Agent SDK streams tool-use blocks and text
+deltas (`include_partial_messages`), the orchestrator forwards them as events, and the API
+serves `POST /api/ask/stream` as server-sent events — each tool step appears in the
+controller's words ("reading the reserve roster", "ranking cover options for P-2291") the
+moment it runs, and the answer text streams as it is written; the final, verified answer
+replaces the streamed text on completion (a grounding rewrite can change it). `/api/ask`
+stays for the CLI, tests and evals.
+
+**2. Proactive watchlist.** `GET /api/watchlist` (and a `watchlist` tool) computes, without a
+model call: crew within a configurable margin of RULE-DUTY-02 / RULE-FLT-03 tomorrow,
+certifications lapsing within 7 days, the highest disruption-risk crew, and — once a
+scenario is active — uncovered flights. Shown on the empty state and as a strip after every
+applied action. Deterministic reuse of `crew_near_limits`, `list_expiring_certifications`,
+`list_risk_signals`.
+
+**3. Scenario workspace.** A per-conversation `Scenario` (crew declared unavailable from a
+date; covers applied as pairing/date/role → crew) stored as JSON on the chat row and passed
+into every tool call as context. Tools read the roster through an overlay on the Datastore:
+declared-out crew read as unavailable and drop out of their pairings; an applied cover
+appears in the role; a called-out reserve is no longer available for those dates. Flights,
+clocks, certificates, costs and rules are untouched; an empty scenario is a pass-through,
+which the tests pin. Four typed tools — `declare_unavailable`, `apply_cover` (runs the full
+seven-rule check and refuses an illegal assignment with the verdict), `scenario_status`,
+`reset_scenario`. The model never mutates state directly and never does the arithmetic. The
+UI shows the active scenario above the composer with a reset. Out of scope for this pass:
+persistent delays and station closures as scenario state (delay recovery still works within
+one question).
+
+**4. Graded confidence.** Per answer: `verified` (all facts grounded, no rewrite), `verified
+after correction`, `unverified figures`, `declined`; per Tier-3 option: the tightest rule
+margin surfaced as a tag ("DUTY-02 headroom 1.2 h — tight"). Margins already exist in the
+evidence objects; this only surfaces them.
+
+**Gates.** Existing suite and Tier 1–3 evals unchanged with an empty scenario; new unit tests
+for the overlay and the watchlist; an orchestrator test for a chained conversation; a
+chained scenario recorded in `docs/failure-cases.md` if anything is under-modelled.
 
 ---
 

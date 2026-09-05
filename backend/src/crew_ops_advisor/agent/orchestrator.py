@@ -23,7 +23,12 @@ from datetime import timedelta
 from typing import Any
 
 from crew_ops_advisor.agent import audit
-from crew_ops_advisor.agent.disclosure import find_disclosures, humanise_sources, redact
+from crew_ops_advisor.agent.disclosure import (
+    TOOL_SOURCES,
+    find_disclosures,
+    humanise_sources,
+    redact,
+)
 from crew_ops_advisor.agent.grounding import (
     GroundingResult,
     check_grounding,
@@ -33,6 +38,7 @@ from crew_ops_advisor.agent.grounding import (
 from crew_ops_advisor.agent.pii import PiiGuard
 from crew_ops_advisor.agent.prompts import REFUSAL_PHRASE, build_system_prompt
 from crew_ops_advisor.agent.types import (
+    EventSink,
     LLMError,
     LLMProvider,
     LLMSession,
@@ -43,7 +49,8 @@ from crew_ops_advisor.agent.types import (
 )
 from crew_ops_advisor.data import Datastore
 from crew_ops_advisor.domain.timeutil import fmt_utc
-from crew_ops_advisor.tools import ToolRegistry
+from crew_ops_advisor.simulation.scenario import Scenario, ScenarioStore
+from crew_ops_advisor.tools import ToolRegistry, build_registry
 
 MAX_STEPS = 8
 MAX_TOOL_CALLS = 12
@@ -73,6 +80,9 @@ class Answer:
     fallback_reason: str | None = None  # set when the primary provider failed and offline answered
     grounding: GroundingResult | None = None
     redactions: tuple[str, ...] = ()  # implementation terms removed from the answer text
+    confidence: str = (
+        "verified"  # verified | verified after correction | unverified | declined | error
+    )
 
     @property
     def tool_calls(self) -> tuple[TraceStep, ...]:
@@ -96,6 +106,7 @@ class Answer:
             "cost_usd": self.cost_usd,
             "grounding": self.grounding.to_dict() if self.grounding else None,
             "redactions": list(self.redactions),
+            "confidence": self.confidence,
             "trace": [s.to_dict() for s in self.trace],
         }
 
@@ -112,6 +123,7 @@ class Conversation:
         *,
         session_id: str | None = None,
         prior: Sequence[tuple[str, str]] = (),
+        scenario: Scenario | None = None,
     ):
         self._advisor = advisor
         self.mode = advisor.provider.name
@@ -120,6 +132,12 @@ class Conversation:
         self.prior: tuple[tuple[str, str], ...] = tuple(prior)
         self._session: LLMSession | None = None
         self._fallback_session: LLMSession | None = None
+        # the desk's working situation for this conversation (ADR-0018 §3); the tools read
+        # the roster through it, and the scenario tools mutate it in place
+        self.scenario: Scenario = scenario or Scenario()
+        self.store = ScenarioStore(advisor.store, self.scenario)
+        self.registry = build_registry(self.store)  # raw: offline router, watchlist
+        self.model_registry = advisor.pii.wrap(self.registry)  # model-facing: scrubbed, audited
 
     def _open(self, provider) -> LLMSession:
         session = provider.open_session(self._advisor.system_prompt, self._advisor.tool_definitions)
@@ -198,19 +216,32 @@ class Advisor:
         return bool(getattr(self.provider, "owns_loop", False))
 
     def new_conversation(
-        self, *, session_id: str | None = None, prior: Sequence[tuple[str, str]] = ()
+        self,
+        *,
+        session_id: str | None = None,
+        prior: Sequence[tuple[str, str]] = (),
+        scenario: Scenario | None = None,
     ) -> Conversation:
-        return Conversation(self, session_id=session_id, prior=prior)
+        return Conversation(self, session_id=session_id, prior=prior, scenario=scenario)
 
-    def ask(self, question: str, conversation: Conversation | None = None) -> Answer:
+    def ask(
+        self,
+        question: str,
+        conversation: Conversation | None = None,
+        *,
+        on_event: EventSink | None = None,
+    ) -> Answer:
+        """Answer one question. `on_event` receives progress events (tool steps, answer text
+        as it is written, phases) for a live UI; the returned Answer is the verified one."""
         conversation = conversation or self.new_conversation()
         started = time.perf_counter()
+        emit = on_event or (lambda event: None)
         try:
             if self.owns_loop:
-                answer = self._ask_loop_provider(question, conversation, started)
+                answer = self._ask_loop_provider(question, conversation, started, emit)
             else:
                 answer = self._ask_turn_provider(
-                    question, conversation, conversation.session, started
+                    question, conversation, conversation.session, started, on_event=emit
                 )
         except LLMError as exc:
             if self.fallback is None:
@@ -225,6 +256,7 @@ class Advisor:
                     error=str(exc),
                 )
             else:
+                emit({"type": "phase", "text": "model unavailable — answering offline"})
                 answer = self._ask_turn_provider(
                     question,
                     conversation,
@@ -232,7 +264,9 @@ class Advisor:
                     started,
                     mode=f"{self.fallback.name} (fallback)",
                     fallback_reason=str(exc),
+                    on_event=emit,
                 )
+        emit({"type": "phase", "text": "verifying the answer against the evidence"})
         answer = self._ground(question, answer, conversation, started)
         conversation.history.append(answer)
         return answer
@@ -271,9 +305,12 @@ class Advisor:
                 "result — use only identifiers and figures returned by lookups."
             )
         nudge = self.REWRITE_NUDGE.format(problems=" ".join(problems))
+        # the correction is not streamed: the UI already shows the first draft and receives
+        # the verified answer on completion
+        quiet: EventSink = lambda event: None  # noqa: E731
         try:
             if self.owns_loop and not answer.fallback_reason:
-                retry = self._ask_loop_provider(nudge, conversation, started)
+                retry = self._ask_loop_provider(nudge, conversation, started, quiet)
             else:
                 session = (
                     conversation.fallback_session
@@ -333,6 +370,7 @@ class Advisor:
             leaks,
             started,
             warn=grounding is not None and not grounding.ok,
+            corrected=True,
         )
 
     def _check(
@@ -366,6 +404,7 @@ class Advisor:
         started: float,
         *,
         warn: bool = False,
+        corrected: bool = False,
     ) -> Answer:
         redactions: tuple[str, ...] = ()
         if leaks:
@@ -378,6 +417,7 @@ class Advisor:
                 + " — not found in any data result; treat as unconfirmed."
             )
         return Answer(
+            confidence=confidence_label(answer, grounding, corrected=corrected or bool(leaks)),
             question=answer.question,
             text=text,
             mode=answer.mode,
@@ -395,7 +435,7 @@ class Advisor:
     # ---- loop-owning providers (Agent SDK) ----------------------------------
 
     def _ask_loop_provider(
-        self, question: str, conversation: Conversation, started: float
+        self, question: str, conversation: Conversation, started: float, emit: EventSink
     ) -> Answer:
         provider: LoopProvider = self.provider  # type: ignore[assignment]
         resumed_note: TraceStep | None = None
@@ -412,8 +452,9 @@ class Advisor:
             run = provider.run(
                 sent,
                 system=self.system_prompt,
-                registry=self.model_registry,
+                registry=conversation.model_registry,
                 resume=conversation.session_id,
+                on_event=emit,
             )
         except LLMError as exc:
             if conversation.session_id is None:
@@ -437,8 +478,9 @@ class Advisor:
             run = provider.run(
                 sent,
                 system=self.system_prompt,
-                registry=self.model_registry,
+                registry=conversation.model_registry,
                 resume=None,
+                on_event=emit,
             )
         conversation.session_id = run.session_id or conversation.session_id
         text = run.text.strip() or f"{REFUSAL_PHRASE}: the model returned no answer."
@@ -470,13 +512,15 @@ class Advisor:
         *,
         mode: str | None = None,
         fallback_reason: str | None = None,
+        on_event: EventSink | None = None,
     ) -> Answer:
         mode = mode or self.provider.name
+        emit = on_event or (lambda event: None)
         trace: list[TraceStep] = []
         usage: dict[str, int] = {}
         # the offline router is local code: raw registry, nothing to audit or scrub
         model_facing = "offline" not in mode
-        registry = self.model_registry if model_facing else self.registry
+        registry = conversation.model_registry if model_facing else conversation.registry
         sent = question
         if model_facing:
             sent, _ = self.pii.scrub_text(question)
@@ -500,10 +544,12 @@ class Advisor:
                     error=None,
                     fallback_reason=fallback_reason,
                 )
-            results = self._run_tools(turn, trace, registry)
+            results = self._run_tools(turn, trace, registry, emit)
             tool_calls += len(results)
             turn = self._llm(session.send_tool_results, results, trace, usage, label="compose")
         text = turn.text.strip() or f"{REFUSAL_PHRASE}: the model returned no answer."
+        if text:
+            emit({"type": "text", "text": text})
         refused = turn.refused or text.lower().startswith(REFUSAL_PHRASE.lower())
         if model_facing:
             audit.model_output(
@@ -541,12 +587,19 @@ class Advisor:
         )
         return turn
 
-    def _run_tools(self, turn: Turn, trace: list[TraceStep], registry=None) -> list[ToolResult]:
+    def _run_tools(
+        self, turn: Turn, trace: list[TraceStep], registry=None, emit: EventSink | None = None
+    ) -> list[ToolResult]:
         registry = registry or self.registry
         results: list[ToolResult] = []
         for call in turn.tool_calls:
+            if emit is not None:
+                emit(tool_call_event(call.name, call.arguments))
             outcome = registry.call(call.name, call.arguments)
-            trace.append(tool_step(call.name, call.arguments, outcome))
+            step = tool_step(call.name, call.arguments, outcome)
+            trace.append(step)
+            if emit is not None:
+                emit(tool_done_event(step))
             results.append(
                 ToolResult(call_id=call.id, content=outcome.content(), is_error=not outcome.ok)
             )
@@ -580,6 +633,70 @@ class Advisor:
             cost_usd=cost_usd,
             fallback_reason=fallback_reason,
         )
+
+
+def confidence_label(answer: Answer, grounding: GroundingResult | None, *, corrected: bool) -> str:
+    """How far the controller can lean on this answer (ADR-0018 §4):
+    verified — every fact traced to a data result, no correction needed;
+    verified after correction — the model's first draft was fixed and the result verified;
+    unverified — figures remain that no data result supports (also flagged in the text);
+    declined — the Advisor refused rather than guess; error — no answer was produced."""
+    if answer.error:
+        return "error"
+    if answer.refused:
+        return "declined"
+    if grounding is not None and not grounding.ok:
+        return "unverified"
+    return "verified after correction" if corrected else "verified"
+
+
+def tool_call_event(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "tool_call",
+        "name": name,
+        "label": tool_label(name, arguments),
+        "arguments": dict(arguments),
+    }
+
+
+def tool_done_event(step: TraceStep) -> dict[str, Any]:
+    return {
+        "type": "tool_done",
+        "name": step.name,
+        "label": tool_label(step.name, step.arguments),
+        "ok": step.ok,
+        "elapsed_ms": step.elapsed_ms,
+        "summary": step.summary,
+    }
+
+
+def tool_label(name: str, arguments: dict[str, Any]) -> str:
+    """A tool step in the controller's words: 'reading the reserve roster (BLR, 2026-09-15)'."""
+    action = TOOL_ACTIONS.get(name) or f"reading {TOOL_SOURCES.get(name, name.replace('_', ' '))}"
+    args = ", ".join(str(v) for v in arguments.values() if isinstance(v, str | int | float))
+    return f"{action} ({args})" if args else action
+
+
+# Progress-line phrasing for the steps that are not plain lookups.
+TOOL_ACTIONS: dict[str, str] = {
+    "simulate_crew_removal": "assessing the sick-call impact",
+    "check_assignment_legality": "checking legality against all seven rules",
+    "check_rostered_legality": "re-checking the rostered duty against all seven rules",
+    "station_closure_impact": "assessing the station closure",
+    "simulate_delay": "assessing the delay",
+    "cancellation_impact": "assessing the cancellation",
+    "crew_near_limits": "checking who is near a duty limit",
+    "reserve_coverage": "checking reserve coverage",
+    "earliest_next_report": "calculating the earliest legal report",
+    "seats_at_risk": "finding the seats most at risk",
+    "recommend_cover": "ranking cover options",
+    "rank_cover_options": "ranking cover options",
+    "joint_cover_plan": "building the joint cover plan",
+    "resolve_delay_options": "ranking delay-recovery options",
+    "draft_callout_notification": "drafting the callout notification",
+    "morning_briefing": "compiling the morning briefing",
+    "watchlist": "compiling the watchlist",
+}
 
 
 def tool_step(name: str, arguments: dict[str, Any], outcome) -> TraceStep:

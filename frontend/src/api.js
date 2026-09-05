@@ -50,6 +50,14 @@ export const api = {
   },
   health: () => request("/api/health"),
   directory: () => request("/api/directory"),
+  watchlist: (date, chatId) => {
+    const q = new URLSearchParams();
+    if (date) q.set("date", date);
+    if (chatId) q.set("chat_id", chatId);
+    const qs = q.toString();
+    return request(`/api/watchlist${qs ? `?${qs}` : ""}`);
+  },
+  resetScenario: (chatId) => request(`/api/chats/${chatId}/scenario/reset`, { method: "POST" }),
   context: () => request("/api/context"),
   tools: () => request("/api/tools"),
   chats: () => request("/api/chats"),
@@ -64,4 +72,37 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ question, conversation_id: conversationId || null }),
     }),
+  /** Streaming ask: calls onEvent for every progress event; resolves with the `done` payload
+   *  (same shape as /api/ask). Rejects if the stream ends without one. */
+  askStream: async (question, conversationId, onEvent) => {
+    const res = await fetch("/api/ask/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, conversation_id: conversationId || null }),
+    });
+    if (!res.ok || !res.body) throw new Error(`${res.status} ${res.statusText}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let done = null;
+    for (;;) {
+      const { value, done: closed } = await reader.read();
+      if (closed) break;
+      buffer += decoder.decode(value, { stream: true });
+      let cut;
+      while ((cut = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0, cut);
+        buffer = buffer.slice(cut + 2);
+        const line = frame.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue; // keep-alive comment
+        const event = JSON.parse(line.slice(6));
+        if (event.type === "done") done = event;
+        else if (event.type === "error") throw new Error(event.detail || "request failed");
+        else onEvent?.(event);
+      }
+      if (done) break;
+    }
+    if (!done) throw new Error("the answer stream ended early");
+    return done;
+  },
 };

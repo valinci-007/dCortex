@@ -22,14 +22,16 @@ persisted (ChatStore); model sessions are rebuilt from the store when a chat is 
 
 from __future__ import annotations
 
+import json
 import os
+import queue
 import threading
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -39,6 +41,7 @@ from crew_ops_advisor.chats import ChatStore
 from crew_ops_advisor.config import Settings
 from crew_ops_advisor.data import Datastore, load_json
 from crew_ops_advisor.domain.timeutil import fmt_utc
+from crew_ops_advisor.simulation.scenario import Scenario
 from crew_ops_advisor.voice import (
     SpeechToText,
     TextToSpeech,
@@ -86,6 +89,29 @@ _AUDIO_FILE = File(...)
 _LANGUAGE_FORM = Form(default=None)
 
 
+def _sse(chats: ChatService, chat_id: str | None, question: str):
+    """Run the question on a worker thread and yield its progress events as SSE frames."""
+    events: queue.Queue = queue.Queue()
+
+    def work() -> None:
+        try:
+            response = chats.ask(chat_id, question, on_event=events.put)
+            events.put({"type": "done", **response.model_dump()})
+        except Exception as exc:  # noqa: BLE001 - the stream carries the error to the client
+            events.put({"type": "error", "detail": str(exc)})
+
+    threading.Thread(target=work, name="ask-stream", daemon=True).start()
+    while True:
+        try:
+            event = events.get(timeout=15)
+        except queue.Empty:
+            yield ": keep-alive\n\n"  # comment frame: keeps proxies from closing a slow answer
+            continue
+        yield f"data: {json.dumps(event, default=str)}\n\n"
+        if event["type"] in ("done", "error"):
+            return
+
+
 class ChatService:
     """Chats in the store plus the live model sessions for chats used in this process."""
 
@@ -103,23 +129,26 @@ class ChatService:
                 if chat is None:
                     raise KeyError(chat_id)
                 conv = self.advisor.new_conversation(
-                    session_id=chat.session_id, prior=self.store.exchanges(chat_id)
+                    session_id=chat.session_id,
+                    prior=self.store.exchanges(chat_id),
+                    scenario=Scenario.from_dict(chat.scenario),
                 )
                 if len(self._live) >= 200:  # bounded memory; reopened chats rehydrate
                     self._live.pop(next(iter(self._live)))
                 self._live[chat_id] = conv
             return conv
 
-    def ask(self, chat_id: str | None, question: str) -> AskResponse:
+    def ask(self, chat_id: str | None, question: str, on_event=None) -> AskResponse:
         question = question.strip()
         if chat_id is None or self.store.get(chat_id) is None:
             chat = self.store.create(provider=self.advisor.provider.name)
             chat_id = chat.id
         conv = self.conversation(chat_id)
         self.store.append(chat_id, "user", question)
-        answer = self.advisor.ask(question, conv)
+        answer = self.advisor.ask(question, conv, on_event=on_event)
         self.store.append(chat_id, "assistant", answer.text, answer=answer.to_dict())
         self.store.set_session(chat_id, conv.session_id)
+        self.store.set_scenario(chat_id, conv.scenario.to_dict())
         chat = self.store.get(chat_id)
         assert chat is not None
         return AskResponse(conversation_id=chat_id, chat=chat.to_dict(), answer=answer.to_dict())
@@ -228,6 +257,17 @@ def create_app(
             raise HTTPException(status_code=404, detail="chat not found")
         chats.forget(chat_id)
 
+    @app.post("/api/chats/{chat_id}/scenario/reset")
+    def reset_scenario(chat_id: str) -> dict[str, Any]:
+        """Discard the chat's working scenario (everyone available again, covers undone)."""
+        if chats.store.get(chat_id) is None:
+            raise HTTPException(status_code=404, detail="chat not found")
+        conv = chats.conversation(chat_id)
+        discarded = conv.scenario.summary()
+        conv.scenario.reset()
+        chats.store.set_scenario(chat_id, None)
+        return {"discarded": discarded, "scenario": conv.scenario.to_dict()}
+
     @app.post("/api/chats/{chat_id}/ask", response_model=AskResponse)
     def ask_in_chat(chat_id: str, req: ChatAskRequest) -> AskResponse:
         if chats.store.get(chat_id) is None:
@@ -244,7 +284,32 @@ def create_app(
         except Exception as exc:  # noqa: BLE001 - surface as a clean 500, never a hang
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    @app.post("/api/ask/stream")
+    def ask_stream(req: AskRequest) -> StreamingResponse:
+        """Same as /api/ask, delivered as server-sent events: progress while the answer is
+        produced (tool steps in the controller's words, the answer text as it is written),
+        then one `done` event with the verified answer — the same payload /api/ask returns."""
+        if req.conversation_id and chats.store.get(req.conversation_id) is None:
+            raise HTTPException(status_code=404, detail="chat not found")
+        return StreamingResponse(
+            _sse(chats, req.conversation_id, req.question),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     # ---- voice ---------------------------------------------------------------
+
+    @app.get("/api/watchlist")
+    def watchlist(date: str | None = None, chat_id: str | None = None) -> dict[str, Any]:
+        """Proactive alerts for a date (default tomorrow) — deterministic, no model call.
+        With a chat_id the chat's scenario counts: applied covers and vacant pairing days."""
+        registry = advisor.registry
+        if chat_id and chats.store.get(chat_id) is not None:
+            registry = chats.conversation(chat_id).registry
+        outcome = registry.call("watchlist", {"date": date} if date else {})
+        if not outcome.ok:
+            raise HTTPException(status_code=400, detail=outcome.error)
+        return outcome.result
 
     @app.get("/api/directory")
     def directory() -> dict[str, str]:

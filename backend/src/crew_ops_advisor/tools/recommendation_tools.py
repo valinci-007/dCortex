@@ -235,3 +235,56 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
     )
     def morning_briefing_tool(store: Datastore, date: str) -> dict[str, Any]:
         return morning_briefing(store, _date(date))
+
+    @registry.tool(
+        "watchlist",
+        "Proactive watchlist for a date (default tomorrow): crew within a margin of the 7-day "
+        "duty limit (RULE-DUTY-02) or the 28-day block limit (RULE-FLT-03) once that day's "
+        "rostered duty counts, certifications lapsing within a few days flagged when the crew "
+        "member is rostered after the expiry (RULE-CERT-06), the highest disruption-risk crew, "
+        "and any flights left uncovered by the active scenario. Use for 'anything I should "
+        "worry about tomorrow?', 'who is close to a limit?', 'what needs attention?'.",
+        {
+            "type": "object",
+            "properties": {
+                "date": _str_prop("Date YYYY-MM-DD; default tomorrow"),
+                "duty_headroom_hours": {
+                    "type": "number",
+                    "description": "Crew with at most this much 7-day duty headroom (default 10)",
+                },
+                "certification_days": {
+                    "type": "integer",
+                    "description": "Certifications expiring within this many days (default 7)",
+                },
+            },
+        },
+        tier=TIER,
+    )
+    def watchlist_tool(
+        store: Datastore,
+        date: str | None = None,
+        duty_headroom_hours: float | None = None,
+        certification_days: int | None = None,
+    ) -> dict[str, Any]:
+        from datetime import timedelta
+
+        from crew_ops_advisor.simulation.watchlist import build_watchlist
+
+        on = _date(date) if date else store.snapshot_utc.date() + timedelta(days=1)
+        kwargs: dict[str, Any] = {}
+        if duty_headroom_hours is not None:
+            kwargs["duty_margin_h"] = float(duty_headroom_hours)
+        if certification_days is not None:
+            kwargs["cert_days"] = int(certification_days)
+        scenario = getattr(store, "scenario", None)  # vacant pairing days in this conversation
+        if scenario is not None and not scenario.empty:
+            kwargs["uncovered"] = [
+                {
+                    **v,
+                    "severity": "breach",
+                    "note": f"{v['role']} slot on {v['pairing_id']} ({', '.join(v['flight_ids'])}) "
+                    f"vacant — {v['crew_id']} unavailable, no cover applied",
+                }
+                for v in scenario.vacancies(store)
+            ]
+        return build_watchlist(store, on, **kwargs)

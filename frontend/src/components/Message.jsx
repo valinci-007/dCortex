@@ -63,6 +63,14 @@ function ReadAloud({ text, voice }) {
   );
 }
 
+// How far the controller can lean on an answer (ADR-0018 §4).
+const CONFIDENCE = {
+  verified: { cls: "good", hint: "Every fact traced to a data result; no correction was needed" },
+  "verified after correction": { cls: "good", hint: "The first draft was corrected and the result verified against the data" },
+  unverified: { cls: "bad", hint: "Figures remain that no data result supports — flagged in the answer" },
+  declined: { cls: "warn", hint: "The Advisor refused rather than guess" },
+};
+
 /** "C-1042" → "C-1042 (A. Nair)" using the local directory — the name never went to the model. */
 function joinNames(text, directory) {
   if (!directory) return text;
@@ -75,6 +83,33 @@ export default function Message({ message, voice, directory }) {
     return (
       <div className="msg user">
         <div className="bubble">{message.text}</div>
+      </div>
+    );
+  }
+  if (message.pending) {
+    return (
+      <div className="msg assistant">
+        <div className="card pending">
+          <ul className="progress">
+            {message.steps.map((s, i) => (
+              <li key={i} className={s.done ? (s.ok ? "done" : "failed") : "running"}>
+                <span className="tick" aria-hidden="true">{s.done ? (s.ok ? "✓" : "✗") : ""}</span>
+                <span className="step-label">{s.label}</span>
+                {s.done && s.summary && <span className="step-summary">{s.summary}</span>}
+              </li>
+            ))}
+            {(message.phase || message.steps.length === 0) && !message.text && (
+              <li className="running">
+                <span className="tick" aria-hidden="true" />
+                <span className="step-label">{message.phase || "reading the question"}</span>
+              </li>
+            )}
+          </ul>
+          {message.text && (
+            <div className="answer streaming" dangerouslySetInnerHTML={{ __html: marked.parse(message.text) }} />
+          )}
+          {message.phase && message.text && <div className="phase">{message.phase}…</div>}
+        </div>
       </div>
     );
   }
@@ -111,16 +146,20 @@ export default function Message({ message, voice, directory }) {
               implementation terms withheld
             </span>
           )}
-          {grounding && (
+          {a.confidence && a.confidence !== "error" && (
             <span
-              className={`badge ${grounding.ok ? "good" : "bad"}`}
+              className={`badge ${CONFIDENCE[a.confidence]?.cls || "muted"}`}
               title={
-                grounding.ok
-                  ? `${grounding.checked} facts checked against tool evidence`
-                  : `not in tool evidence: ${grounding.unsupported.join(", ")}`
+                (CONFIDENCE[a.confidence]?.hint || "") +
+                (grounding
+                  ? grounding.ok
+                    ? ` · ${grounding.checked} facts checked against the data results`
+                    : ` · not in any data result: ${grounding.unsupported.join(", ")}`
+                  : "")
               }
             >
-              {grounding.ok ? `grounded · ${grounding.checked} facts` : "unverified figures"}
+              {a.confidence}
+              {grounding?.ok && a.confidence.startsWith("verified") ? ` · ${grounding.checked} facts` : ""}
             </span>
           )}
           <span className="badge muted">{Math.round(a.elapsed_ms / 100) / 10} s</span>

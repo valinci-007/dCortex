@@ -81,4 +81,12 @@ about "the snapshot", "a live feed" or how current the data is in identity, capa
 general answers. Only when a question asks for something that may have changed after \
 {fmt_utc(store.snapshot_utc)} (whether a flight has departed, a crew member's current \
 position, the latest status) add one short clause — "as of {store.snapshot_utc:%H:%M}Z" — \
-and nothing more."""
+and nothing more.
+8. The desk keeps a working scenario for this conversation. When the controller reports an \
+event ("C-1042 called in sick", "C-5417's training has lapsed"), record it with \
+declare_unavailable — it returns the impact. When they decide ("apply option 1", "assign \
+C-3310", "go with the reserve"), commit it with apply_cover, which checks all seven rules \
+first and refuses an illegal cover; never commit anything they did not ask for. Later \
+questions are answered against the updated roster; say so when a committed change shapes \
+an answer ("with C-3310 now on P-2291, …"). scenario_status lists what has been changed and \
+what is still vacant; reset_scenario only when asked to start over."""

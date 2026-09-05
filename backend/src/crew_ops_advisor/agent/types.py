@@ -7,7 +7,7 @@ the provider's session object, so swapping providers is a config change.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -97,6 +97,14 @@ class LoopRun:
     stop_reason: str = "end_turn"
 
 
+# Progress events pushed to the UI while an answer is being produced (ADR-0018 §1):
+#   {"type": "tool_call", "name", "label", "arguments"}      a lookup or simulation starts
+#   {"type": "tool_done", "name", "label", "ok", "elapsed_ms", "summary"}
+#   {"type": "text", "text"}                                  a chunk of the answer as written
+#   {"type": "phase", "text"}                                 e.g. "verifying the answer"
+EventSink = Callable[[dict[str, Any]], None]
+
+
 class LoopProvider(Protocol):
     """A provider that runs the agent loop itself (the Claude Agent SDK) and calls our tools
     through the registry. `owns_loop` is how the orchestrator tells the two shapes apart."""
@@ -105,5 +113,11 @@ class LoopProvider(Protocol):
     owns_loop: bool
 
     def run(
-        self, question: str, *, system: str, registry: Any, resume: str | None = None
+        self,
+        question: str,
+        *,
+        system: str,
+        registry: Any,
+        resume: str | None = None,
+        on_event: EventSink | None = None,
     ) -> LoopRun: ...

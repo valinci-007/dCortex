@@ -51,6 +51,7 @@ class Option:
     coverage: str
     cost_breakdown: dict[str, float] = field(default_factory=dict)
     evidence: dict[str, Any] | None = None
+    margin: dict[str, Any] | None = None  # the tightest rule headroom this option leaves
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +67,7 @@ class Option:
             "reasoning": self.reasoning,
             "cost_breakdown": dict(self.cost_breakdown),
             "evidence": self.evidence,
+            "margin": self.margin,
         }
 
 
@@ -186,6 +188,43 @@ def rank_cover_options(
     )
 
 
+# Headroom below which a legal option is flagged "tight" — the controller should know the
+# cover works today but leaves little room for the next disruption.
+TIGHT_HOURS = {"RULE-DUTY-02": 4.0, "RULE-FLT-03": 5.0, "RULE-REST-04": 1.0}
+
+
+def tightest_margin(evidence) -> dict[str, Any] | None:
+    """The rule with the least headroom among the verdicts that depend on the candidate —
+    the rolling duty and block windows, and the rest before the first covered report. FDP
+    and the rest between the pairing's own days are properties of the pairing, identical
+    for every candidate, so they say nothing about which option is safer."""
+    first = min(evidence.duty_dates) if evidence.duty_dates else None
+    hours = [
+        v
+        for v in evidence.verdicts
+        if v.margin is not None
+        and v.passed
+        and (
+            v.rule_id in ("RULE-DUTY-02", "RULE-FLT-03")
+            or (v.rule_id == "RULE-REST-04" and v.date == first)
+        )
+    ]
+    if not hours:
+        return None
+    v = min(hours, key=lambda x: (x.margin / TIGHT_HOURS[x.rule_id], x.margin))
+    tight = v.margin <= TIGHT_HOURS[v.rule_id]
+    unit = "h"
+    return {
+        "rule": v.rule_id,
+        "headroom_hours": round(v.margin, 2),
+        "on": v.date.isoformat() if v.date else None,
+        "label": "tight" if tight else "comfortable",
+        "note": f"{v.rule_id} headroom {v.margin:.1f}{unit}"
+        + (f" on {v.date.isoformat()}" if v.date else "")
+        + (" — tight" if tight else ""),
+    }
+
+
 def _label(kind: str) -> str:
     return {"reserve_callout": "reserve callout", "dayoff_callout": "day-off callout"}.get(
         kind, kind
@@ -268,6 +307,7 @@ def _assess_candidate(
         coverage=f"all {len(duties)} duty day(s)" if len(duties) > 1 else "all legs",
         cost_breakdown=breakdown,
         evidence={"issues": [], "conditions": [v.detail for v in evidence.conditions]},
+        margin=tightest_margin(evidence),
     )
 
 

@@ -50,6 +50,7 @@ TOOL_SOURCES: dict[str, str] = {
     "resolve_delay_options": "the delay-recovery options",
     "draft_callout_notification": "the callout draft",
     "morning_briefing": "the morning briefing",
+    "watchlist": "the watchlist",
 }
 
 FILE_SOURCES: dict[str, str] = {

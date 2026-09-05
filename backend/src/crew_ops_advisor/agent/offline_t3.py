@@ -37,6 +37,33 @@ class T3Planner:
         low = text.lower()
         has = lambda *words: any(re.search(rf"\b{w}\b", low) for w in words)  # noqa: E731
 
+        # -- scenario workspace (ADR-0018 §3): explicit verbs only ------------------------
+        if has("reset") and has("scenario", "workspace", "start over"):
+            return "scenario_reset", (call("reset_scenario"),), compose_scenario_reset
+        if has("scenario", "workspace") and has(
+            "status", "changed", "committed", "vacant", "where are we"
+        ):
+            return "scenario_status", (call("scenario_status"),), compose_scenario_status
+        if (
+            has("record", "declare", "log")
+            and e.crew_id
+            and has("sick", "unavailable", "out", "no-show", "lapsed")
+        ):
+            args = {"crew_id": e.crew_id}
+            if e.date:
+                args["from_date"] = e.date.isoformat()
+            args["reason"] = "certification" if has("lapsed", "certif\\w*") else "sick"
+            return "scenario_declare", (call("declare_unavailable", **args),), compose_declare
+        if has("apply", "assign", "commit") and len(e.crew_ids) >= 2 and e.pairing_ids:
+            args = {
+                "pairing_id": e.pairing_ids[0],
+                "crew_id": e.crew_ids[0],
+                "replacing": e.crew_ids[1],
+            }
+            if e.date:
+                args["from_date"] = e.date.isoformat()
+            return "scenario_apply", (call("apply_cover", **args),), compose_apply
+
         # -- notification drafting ----------------------------------------------------
         if (
             has("draft", "notif\\w*", "message", "notify", "callout message")
@@ -288,4 +315,107 @@ def compose_briefing(r: Results) -> str:
             "headroom from duty_clocks history + roster (RULE-DUTY-02); reserves from reserve_pool windows and ratings; risk from risk_signals.json",
             "why these three: legality headroom is what breaks first under a delay, reserve availability is what fixes it, and risk signals say where to look first",
         )
+    )
+
+
+# ---------------------------------------------------------------- scenario workspace
+
+
+def compose_declare(r: Results) -> str:
+    if err := _err(r, "declare_unavailable"):
+        return _refused("declare_unavailable", err)
+    d = r["declare_unavailable"]
+    who, impact, sc = d["declared"], d["impact"], d["scenario"]
+    vac = sc["vacancies"]
+    lines = [
+        f"Recorded: {who['crew_id']} ({who['name']}, {who['rank']}) unavailable from "
+        f"{who['from_date']} ({who['reason']})."
+    ]
+    if impact.get("uncovered_now"):
+        lines.append("Uncovered now: " + ", ".join(impact["uncovered_now"]) + ".")
+    if vac:
+        lines.append(
+            "Vacant: "
+            + "; ".join(f"{v['role']} on {v['pairing_id']} {v['date']}" for v in vac)
+            + ". Ask for cover options, then apply one."
+        )
+    else:
+        lines.append("No pairing days are vacant.")
+    return (
+        "\n".join(lines)
+        + "\n\n"
+        + _reasoning(
+            "Sick-call impact assessment on the working scenario; the roster in this conversation "
+            "now treats them as unavailable.",
+            "Scenario: " + "; ".join(sc["summary"]),
+        )
+    )
+
+
+def compose_apply(r: Results) -> str:
+    if err := _err(r, "apply_cover"):
+        return _refused("apply_cover", err)
+    a = r["apply_cover"]
+    sc = a["scenario"]
+    if not a.get("applied"):
+        alts = a.get("legal_alternatives") or []
+        return (
+            f"Not applied — {a.get('reason', 'not a legal cover')}."
+            + (
+                " Legal alternatives: "
+                + ", ".join(f"{o['crew_id']} (₹{o['cost_inr']:,.0f})" for o in alts)
+                + "."
+                if alts
+                else ""
+            )
+            + "\n\n"
+            + _reasoning("Legality check on the working scenario refused the cover.")
+        )
+    c, o = a["cover"], a["option"]
+    return (
+        f"Committed: {c['crew_id']} covers {c['pairing_id']} as {c['role']} from {c['from_date']} "
+        f"in place of {c['replaces']} — {o['kind'].replace('_', ' ')}, ₹{c['cost_inr']:,.0f}, "
+        f"{o['coverage']}. Vacancies left: {len(sc['vacancies'])}. "
+        f"Committed cost so far ₹{sc['committed_cost_inr']:,.0f}."
+        + "\n\n"
+        + _reasoning(
+            "Cover applied after the full check: " + ", ".join(o["rules_checked"]) + ".",
+            "Scenario: " + "; ".join(sc["summary"]),
+        )
+    )
+
+
+def compose_scenario_status(r: Results) -> str:
+    if err := _err(r, "scenario_status"):
+        return _refused("scenario_status", err)
+    sc = r["scenario_status"]
+    if sc["empty"]:
+        return "No changes in this conversation's scenario.\n\n" + _reasoning(
+            "Scenario status: empty."
+        )
+    vac = sc["vacancies"]
+    return (
+        "Working scenario:\n"
+        + "\n".join(f"- {line}" for line in sc["summary"])
+        + (
+            "\nStill vacant: "
+            + "; ".join(f"{v['role']} on {v['pairing_id']} {v['date']}" for v in vac)
+            if vac
+            else "\nNothing vacant."
+        )
+        + f"\nCommitted cost so far ₹{sc['committed_cost_inr']:,.0f}."
+        + "\n\n"
+        + _reasoning("Scenario status from the desk's working scenario.")
+    )
+
+
+def compose_scenario_reset(r: Results) -> str:
+    if err := _err(r, "reset_scenario"):
+        return _refused("reset_scenario", err)
+    d = r["reset_scenario"]
+    return (
+        "Scenario reset — everyone is available again and applied covers are undone."
+        + (" Discarded: " + "; ".join(d["discarded"]) + "." if d["discarded"] else "")
+        + "\n\n"
+        + _reasoning("reset_scenario cleared the working scenario.")
     )

@@ -66,6 +66,7 @@ class ChatRecord:
     created_at: str
     updated_at: str
     message_count: int = 0
+    scenario: dict[str, Any] | None = None  # the desk's working scenario (ADR-0018 §3)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,6 +77,7 @@ class ChatRecord:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "message_count": self.message_count,
+            "scenario": self.scenario,
         }
 
 
@@ -107,6 +109,11 @@ class ChatStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
+        # additive migration for stores created before scenarios existed
+        columns = {r["name"] for r in self._conn.execute("PRAGMA table_info(chats)")}
+        if "scenario_json" not in columns:
+            with self._conn:
+                self._conn.execute("ALTER TABLE chats ADD COLUMN scenario_json TEXT")
 
     def close(self) -> None:
         self._conn.close()
@@ -152,6 +159,14 @@ class ChatStore:
         with self._conn:
             self._conn.execute(
                 "UPDATE chats SET session_id = ? WHERE id = ?", (session_id, chat_id)
+            )
+
+    def set_scenario(self, chat_id: str, scenario: dict[str, Any] | None) -> None:
+        """Persist the conversation's working scenario (None or empty clears it)."""
+        payload = json.dumps(scenario) if scenario and any(scenario.values()) else None
+        with self._conn:
+            self._conn.execute(
+                "UPDATE chats SET scenario_json = ? WHERE id = ?", (payload, chat_id)
             )
 
     def delete(self, chat_id: str) -> bool:
@@ -211,6 +226,9 @@ class ChatStore:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             message_count=int(row["n"]) if "n" in row.keys() else 0,
+            scenario=json.loads(row["scenario_json"])
+            if "scenario_json" in row.keys() and row["scenario_json"]
+            else None,
         )
 
     @staticmethod
