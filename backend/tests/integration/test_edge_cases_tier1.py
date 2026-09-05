@@ -1,262 +1,190 @@
+"""Tier 1 (lookup) edge cases — the scenario list from PR #3 (T1-EC-1 … T1-EC-13), ported
+onto the real API and the real dataset so every case executes.
+
+Conventions: `registry.call(name, args)` returns a ToolOutcome (`ok`, `result`, `error`);
+the `store` and `registry` fixtures come from tests/conftest.py. Crew ids are real ones.
 """
-Test suite for Tier 1 (Lookup) edge cases.
-Run with: python -m pytest tests/integration/test_edge_cases_tier1.py -v
-"""
+
+from __future__ import annotations
+
+from collections import Counter
+from datetime import UTC, date, datetime, time
 
 import pytest
-from datetime import datetime, date, time
-from decimal import Decimal
 
-from crew_ops_advisor.data.loader import load_database
-from crew_ops_advisor.tools.query_tools import ToolRegistry
 from crew_ops_advisor.domain.models import ReserveEntry
 
-
-class TestTier1EdgeCases:
-    """Tier 1 edge case tests for lookup and query tools."""
-    
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Initialize database and tool registry."""
-        self.db = load_database()
-        self.registry = ToolRegistry(self.db)
-    
-    def test_overnight_reserve_window_wraps_midnight(self):
-        """
-        T1-EC-1: Overnight Reserve Window
-        
-        Reserve works 22:00-06:00Z (wraps past midnight).
-        System should recognize availability within window.
-        """
-        # Create a reserve entry with overnight window
-        reserve = ReserveEntry(
-            crew_id="TEST-OVERNIGHT-1",
-            base="BLR",
-            oncall_start=time(22, 0),  # 22:00 UTC
-            oncall_end=time(6, 0),      # 06:00 UTC next day
-            on_date=date(2026, 9, 15),
-        )
-        
-        # Test callout at 23:30 (within overnight window) - should be available
-        callout_2330 = datetime(2026, 9, 15, 23, 30, 0)
-        assert reserve.covers(callout_2330), "23:30 should be within 22:00-06:00 window"
-        
-        # Test callout at 05:00 (within overnight window) - should be available
-        callout_0500 = datetime(2026, 9, 15, 5, 0, 0)
-        assert reserve.covers(callout_0500), "05:00 should be within 22:00-06:00 window"
-        
-        # Test callout at 07:00 (after window ends) - should NOT be available
-        callout_0700 = datetime(2026, 9, 15, 7, 0, 0)
-        assert not reserve.covers(callout_0700), "07:00 should NOT be within 22:00-06:00 window"
-        
-        # Test callout at 21:00 (before window starts) - should NOT be available
-        callout_2100 = datetime(2026, 9, 15, 21, 0, 0)
-        assert not reserve.covers(callout_2100), "21:00 should NOT be within 22:00-06:00 window"
-    
-    def test_zero_duty_days_excluded_from_history(self):
-        """
-        T1-EC-2: Zero-Duty Days Excluded
-        
-        Days with 0 duty hours are filtered out.
-        LLM needs to understand that hidden days are off-days, not data gaps.
-        """
-        # Get a crew member's duty clock
-        tool_spec = self.registry.get_tool("get_duty_clock")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        # Verify result includes only non-zero days
-        if result.get("success"):
-            daily_history = result.get("daily_history", [])
-            # Check that all returned days have at least some hours
-            for day_record in daily_history:
-                duty_hours = day_record.get("duty_hours", 0)
-                flight_hours = day_record.get("flight_hours", 0)
-                # At least one should be non-zero (implementation should filter)
-                assert duty_hours > 0 or flight_hours > 0, \
-                    f"Zero-hour day should be filtered: {day_record}"
-    
-    def test_station_code_validation_error_handling(self):
-        """
-        T1-EC-3: Station Code Validation
-        
-        Invalid station codes should return error, not silent empty result.
-        """
-        tool_spec = self.registry.get_tool("list_flights_from_station")
-        result = tool_spec.execute(station_code="INVALID_XYZ")
-        
-        # Should either return empty or explicit error, not crash
-        assert isinstance(result, dict), "Result should be dict"
-        # Either no flights found or error message should be clear
-        flights = result.get("flights", [])
-        assert isinstance(flights, list), "Flights should be a list"
-    
-    def test_ambiguous_relative_time_parsing(self):
-        """
-        T1-EC-4: Ambiguous Relative Time
-        
-        Phrases like "this afternoon" are ambiguous without context.
-        System should require clarification or document assumptions.
-        """
-        # This is more of a documentation test
-        # The system should log/track when relative times are used
-        tool_spec = self.registry.get_tool("get_crew")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        # System should have consistent handling of times
-        assert "crew_id" in result, "Crew lookup should work"
-    
-    def test_crew_with_multiple_pairings_same_day(self):
-        """
-        T1-EC-5: Crew with Multiple Pairings Same Day
-        
-        A crew might have multiple pairings on same day (e.g., two short legs).
-        Query should return all pairings for that crew/date.
-        """
-        tool_spec = self.registry.get_tool("list_pairings_for_crew")
-        
-        # Try to get pairings for a crew on a specific date
-        result = tool_spec.execute(crew_id="C-1001", duty_date="2026-09-10")
-        
-        # Should return list (possibly empty, possibly multiple)
-        pairings = result.get("pairings", [])
-        assert isinstance(pairings, list), "Should return list of pairings"
-    
-    def test_certification_valid_from_date_enforcement(self):
-        """
-        T1-EC-6: Certification Valid-From Not Enforced
-        
-        Certifications have valid_from dates; system doesn't check them.
-        This is documented as known limitation.
-        """
-        tool_spec = self.registry.get_tool("get_certifications_for_crew")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        # Should return certifications
-        certifications = result.get("certifications", [])
-        
-        # Check that valid_from dates exist but may not be enforced
-        for cert in certifications:
-            # Cert should have valid_from (even if not checked in legality)
-            assert "valid_from" in cert or "valid_date" in cert, \
-                f"Certification should have valid date: {cert}"
-    
-    def test_crew_reachability_status_field(self):
-        """
-        T1-EC-7: Crew Reachability Status
-        
-        Crew has reachability status; query should return it.
-        """
-        tool_spec = self.registry.get_tool("get_crew")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        # Crew record should include reachability if it exists
-        if result.get("success"):
-            # Check for any reachability indicator
-            assert "crew_id" in result, "Crew should have ID"
-    
-    def test_reserve_window_boundary_precision(self):
-        """
-        T1-EC-8: Reserve Window Boundary Precision (05:59 vs 06:00)
-        
-        Reserve ends at 06:00Z. Callout at 05:59 should be available.
-        Callout at 06:00 should NOT (depends on implementation: inclusive vs exclusive).
-        """
-        reserve = ReserveEntry(
-            crew_id="TEST-BOUNDARY-1",
-            base="BLR",
-            oncall_start=time(22, 0),
-            oncall_end=time(6, 0),
-            on_date=date(2026, 9, 15),
-        )
-        
-        # Test boundary: 05:59 should be within window
-        callout_0559 = datetime(2026, 9, 15, 5, 59, 0)
-        # Note: Behavior depends on whether end is inclusive or exclusive
-        result_0559 = reserve.covers(callout_0559)
-        
-        # Test boundary: 06:00 - depends on implementation
-        callout_0600 = datetime(2026, 9, 15, 6, 0, 0)
-        result_0600 = reserve.covers(callout_0600)
-        
-        # At least one should be consistent
-        assert isinstance(result_0559, bool), "Should return boolean"
-        assert isinstance(result_0600, bool), "Should return boolean"
-    
-    def test_near_limits_threshold_definition(self):
-        """
-        T1-EC-9: Near Limits Threshold
-        
-        What is "near limit"? 85%? 90%? 95%? System should define clearly.
-        """
-        tool_spec = self.registry.get_tool("get_duty_clock")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        # Check if result includes any "near_limit" or "margin" indicator
-        if result.get("success"):
-            # Should have clear numeric values, not vague "near" warnings
-            assert "duty_hours_7d" in result or "duty_7d" in result, \
-                "Should return concrete duty hour numbers"
-    
-    def test_query_tool_schema_validation_rejects_invalid_input(self):
-        """
-        T1-EC-10: Query Tool Input Validation
-        
-        Invalid inputs should be rejected with clear error, not silently fail.
-        """
-        tool_spec = self.registry.get_tool("list_flights_from_station")
-        
-        # Try with missing required parameter
-        result = tool_spec.execute()  # No station_code provided
-        
-        # Should either fail gracefully or return empty
-        assert isinstance(result, dict), "Should return dict even on error"
-    
-    def test_duty_clock_7day_window_precision(self):
-        """
-        T1-EC-11: 7-Day Duty Window Precision
-        
-        The 7-calendar-day window should be precisely defined.
-        E.g., "last 7 calendar days" or "rolling 168 hours"?
-        """
-        tool_spec = self.registry.get_tool("get_duty_clock")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        if result.get("success"):
-            duty_7d = result.get("duty_hours_7d")
-            # System should return a number, implementation detail of window clear
-            assert isinstance(duty_7d, (int, float, Decimal)), \
-                "7-day duty should be numeric"
-    
-    def test_flight_time_28day_window_precision(self):
-        """
-        T1-EC-12: 28-Day Flight Time Window Precision
-        
-        The 28-day window for flight time limits needs precise definition.
-        """
-        tool_spec = self.registry.get_tool("get_duty_clock")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        if result.get("success"):
-            flight_28d = result.get("flight_hours_28d")
-            assert isinstance(flight_28d, (int, float, Decimal)), \
-                "28-day flight should be numeric"
-    
-    def test_multiple_certifications_per_crew_same_type(self):
-        """
-        T1-EC-13: Multiple Certifications Same Type
-        
-        Crew might have multiple certifications of same type (renewals, ratings).
-        Query should return all, not just first/last.
-        """
-        tool_spec = self.registry.get_tool("get_certifications_for_crew")
-        result = tool_spec.execute(crew_id="C-1001")
-        
-        certifications = result.get("certifications", [])
-        
-        # Should be list format to handle multiples
-        assert isinstance(certifications, list), \
-            "Certifications should be list to support multiples"
+UTC = UTC
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+def call(registry, name, **args):
+    out = registry.call(name, args)
+    assert out.ok, f"{name}: {out.error}"
+    return out.result
+
+
+def at(y, m, d, hh, mm=0):
+    return datetime(y, m, d, hh, mm, tzinfo=UTC)
+
+
+# ---- T1-EC-1: an on-call window that wraps past midnight ---------------------------------
+
+
+def test_t1_ec1_overnight_reserve_window_wraps_midnight():
+    reserve = ReserveEntry(
+        crew_id="C-TEST",
+        base="BLR",
+        dates=(date(2026, 9, 15),),
+        oncall_start=time(22, 0, tzinfo=UTC),
+        oncall_end=time(6, 0, tzinfo=UTC),
+    )
+    assert reserve.overnight
+    assert reserve.covers(at(2026, 9, 15, 23, 30))  # evening of the reserve date
+    assert reserve.covers(at(2026, 9, 16, 5, 0))  # early morning after it
+    assert not reserve.covers(at(2026, 9, 16, 7, 0))  # after the window closed
+    assert not reserve.covers(at(2026, 9, 15, 21, 0))  # before it opened
+    assert not reserve.covers(at(2026, 9, 15, 5, 0))  # the morning *before* the reserve date
+
+
+# ---- T1-EC-2: duty-clock history lists only days with hours ------------------------------
+
+
+def test_t1_ec2_history_omits_zero_duty_days_and_says_so(registry):
+    clock = call(registry, "get_duty_clock", crew_id="C-1042")
+    history = clock["daily_history"]
+    assert history and all(d["duty_hours"] > 0 or d["flight_hours"] > 0 for d in history)
+    # the windows are explicit, so a missing date inside them is an off-day, not a gap
+    assert clock["duty_window_7d"] == {"start": "2026-09-08", "end": "2026-09-14"}
+    assert clock["flight_window_28d"] == {"start": "2026-08-18", "end": "2026-09-14"}
+
+
+# ---- T1-EC-3: an unknown station is an empty result, not a crash -------------------------
+
+
+def test_t1_ec3_unknown_station_yields_an_empty_listing(registry):
+    r = call(registry, "list_flights", dep_station="INVALID_XYZ")
+    assert r["count"] == 0 and r["flights"] == [] and r["total_seats"] == 0
+    assert r["filters"]["dep_station"] == "INVALID_XYZ"
+
+
+# ---- T1-EC-4: relative time words resolve deterministically ------------------------------
+
+
+def test_t1_ec4_relative_time_words_are_resolved_against_the_snapshot(store):
+    from crew_ops_advisor.agent.entities import EntityExtractor
+
+    ex = EntityExtractor(store)
+    e = ex.extract("Which flights depart DEL this afternoon?")
+    assert "afternoon" in e.flags and e.dep_station == "DEL"
+    e = ex.extract("Who is on reserve at BLR tomorrow?")
+    assert "tomorrow" in e.flags and e.stations == ("BLR",)
+
+
+# ---- T1-EC-5: nobody is rostered on two pairings the same day ----------------------------
+
+
+def test_t1_ec5_no_crew_member_holds_two_pairings_on_one_day(store):
+    seen = Counter()
+    for pairing in store.pairings.list():
+        for day in pairing.days:
+            for member in pairing.crew:
+                seen[(member.crew_id, day.date)] += 1
+    assert not [k for k, n in seen.items() if n > 1]
+
+
+# ---- T1-EC-6: certification validity is checked on the duty date, both ends --------------
+
+
+def test_t1_ec6_certification_validity_checks_valid_from_and_valid_to(store):
+    from crew_ops_advisor.domain.models import Certification
+
+    cert = Certification("C-TEST", "licence", date(2026, 9, 10), date(2026, 9, 20))
+    assert cert.valid_on(date(2026, 9, 10)) and cert.valid_on(date(2026, 9, 20))
+    assert not cert.valid_on(date(2026, 9, 9)) and not cert.valid_on(date(2026, 9, 21))
+    # and every crew member in the dataset carries the four certificate types
+    for crew in store.crew.list():
+        types = {c.cert_type for c in store.certifications.for_crew(crew.crew_id)}
+        assert types >= {"licence", "medical_class1", "recurrent_training", "dangerous_goods"}
+
+
+# ---- T1-EC-7: reachability is always present and plausible ------------------------------
+
+
+def test_t1_ec7_reachability_is_reported_for_every_crew_member(store, registry):
+    for crew in store.crew.list():
+        assert 0 < crew.reachability_minutes <= 240
+    r = call(registry, "get_crew", crew_id="C-1042")
+    assert r["reachability_minutes"] == store.crew.get("C-1042").reachability_minutes
+
+
+# ---- T1-EC-8: window boundaries are inclusive to the minute ------------------------------
+
+
+def test_t1_ec8_reserve_window_boundaries_are_inclusive(store):
+    reserve = store.reserves.get("C-3305")  # on call 00:00–05:30Z
+    assert reserve.covers(at(2026, 9, 15, 5, 30))
+    assert not reserve.covers(at(2026, 9, 15, 5, 31))
+    assert reserve.covers(at(2026, 9, 15, 0, 0))
+    assert not reserve.covers(at(2026, 9, 13, 3, 0))  # not a reserve date
+
+
+# ---- T1-EC-9: near-limits thresholds behave as thresholds --------------------------------
+
+
+def test_t1_ec9_near_limits_threshold_is_monotonic(registry):
+    loose = call(registry, "crew_near_limits", date="2026-09-15", max_duty_headroom=15.0)
+    tight = call(registry, "crew_near_limits", date="2026-09-15", max_duty_headroom=9.0)
+    assert {c["crew_id"] for c in tight["crew"]} <= {c["crew_id"] for c in loose["crew"]}
+    assert all(c["duty_headroom_7d"] <= 9.0 for c in tight["crew"])
+    assert "C-2087" in {c["crew_id"] for c in tight["crew"]}
+
+
+# ---- T1-EC-10: input validation is structured, never an exception ------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "args", "message"),
+    [
+        ("get_crew", {}, "missing required argument(s): crew_id"),
+        ("get_crew", {"crew": "C-1042"}, "missing required argument(s): crew_id"),
+        ("get_crew", {"crew_id": "C-1001"}, "unknown crew C-1001"),
+        ("get_duty_clock", {"crew_id": "C-1042", "extra": 1}, "unknown argument(s): extra"),
+        ("list_reserves", {"station": "BLR", "date": "15/09/2026"}, "date"),
+    ],
+)
+def test_t1_ec10_query_tool_input_validation(registry, name, args, message):
+    out = registry.call(name, args)
+    assert not out.ok and message in out.error
+
+
+# ---- T1-EC-11 / T1-EC-12: rolling windows are exactly 7 and 28 calendar days -------------
+
+
+def test_t1_ec11_seven_day_window_is_seven_calendar_days_ending_today(registry):
+    clock = call(registry, "get_duty_clock", crew_id="C-2087")
+    start, end = clock["duty_window_7d"]["start"], clock["duty_window_7d"]["end"]
+    assert (date.fromisoformat(end) - date.fromisoformat(start)).days == 6
+    inside = [d for d in clock["daily_history"] if start <= d["date"] <= end]
+    assert clock["duty_hours_7d"] == pytest.approx(sum(d["duty_hours"] for d in inside), abs=0.01)
+    assert clock["duty_headroom_7d"] == pytest.approx(60 - clock["duty_hours_7d"], abs=0.01)
+
+
+def test_t1_ec12_twenty_eight_day_window_is_twenty_eight_calendar_days(registry):
+    clock = call(registry, "get_duty_clock", crew_id="C-2087")
+    start, end = clock["flight_window_28d"]["start"], clock["flight_window_28d"]["end"]
+    assert (date.fromisoformat(end) - date.fromisoformat(start)).days == 27
+    inside = [d for d in clock["daily_history"] if start <= d["date"] <= end]
+    assert clock["flight_hours_28d"] == pytest.approx(
+        sum(d["flight_hours"] for d in inside), abs=0.01
+    )
+
+
+# ---- T1-EC-13: one certificate per type per crew member ----------------------------------
+
+
+def test_t1_ec13_no_duplicate_certificate_types_per_crew_member(store, registry):
+    for crew in store.crew.list():
+        types = [c.cert_type for c in store.certifications.for_crew(crew.crew_id)]
+        assert len(types) == len(set(types)), crew.crew_id
+    r = call(registry, "get_certifications", crew_id="C-5417")
+    assert len({c["cert_type"] for c in r["certifications"]}) == len(r["certifications"])
