@@ -10,8 +10,10 @@ are still there when a chat is reopened.
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -109,6 +111,9 @@ class ChatStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
+        # one connection, several API worker threads: every call takes this lock, so
+        # statements never interleave (the store is small and every operation is short)
+        self._lock = threading.RLock()
         # additive migration for stores created before scenarios existed
         columns = {r["name"] for r in self._conn.execute("PRAGMA table_info(chats)")}
         if "scenario_json" not in columns:
@@ -241,3 +246,30 @@ class ChatStore:
             created_at=row["created_at"],
             answer=json.loads(row["answer_json"]) if row["answer_json"] else None,
         )
+
+
+def _locked(method):
+    """Serialise a ChatStore method on the store's lock."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+for _name in (
+    "create",
+    "get",
+    "list",
+    "rename",
+    "set_session",
+    "set_scenario",
+    "delete",
+    "messages",
+    "append",
+    "exchanges",
+    "close",
+):
+    setattr(ChatStore, _name, _locked(getattr(ChatStore, _name)))

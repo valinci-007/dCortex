@@ -232,3 +232,26 @@ def test_scenario_persists_with_the_chat_and_can_be_reset(db_path, tmp_path):
     assert fresh.get(f"/api/chats/{chat_id}").json()["chat"]["scenario"] is None
     assert fresh.get(f"/api/watchlist?chat_id={chat_id}").json()["uncovered_flights"] == []
     assert fresh.post("/api/chats/nope/scenario/reset").status_code == 404
+
+
+def test_concurrent_requests_do_not_corrupt_reads(db_path, tmp_path):
+    """A page load fires several requests at once; each worker thread must read the
+    database through its own connection (a shared one interleaved cursors → NULL rows)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    settings = dataclasses.replace(
+        Settings.from_env(),
+        db_path=db_path,
+        chats_db_path=tmp_path / "c.db",
+        llm_provider="offline",
+    )
+    c = TestClient(create_app(settings))
+    paths = ["/api/watchlist", "/api/context", "/api/chats", "/api/directory", "/api/tools"] * 8
+
+    def hit(path):
+        r = c.get(path)
+        return path, r.status_code
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        results = list(pool.map(hit, paths))
+    assert all(code == 200 for _, code in results), [r for r in results if r[1] != 200]

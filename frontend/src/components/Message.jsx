@@ -73,7 +73,7 @@ const CONFIDENCE = {
 
 /** "C-1042" → "C-1042 (A. Nair)" using the local directory — the name never went to the model. */
 function joinNames(text, directory) {
-  if (!directory) return text;
+  if (!directory || !text) return text; // no directory (PII mode full) or no Reasoning section
   return text.replace(/\bC-\d{4}\b(?!\s*\()/g, (id) => (directory[id] ? `${id} (${directory[id]})` : id));
 }
 
