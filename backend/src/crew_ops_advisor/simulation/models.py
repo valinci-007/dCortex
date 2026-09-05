@@ -120,8 +120,16 @@ class ClosureImpact:
 
     def to_dict(self) -> dict[str, Any]:
         pairings: dict[str, list[str]] = {}
+        per_pairing: dict[str, dict[str, Any]] = {}
         for a in self.assessments:
             pairings.setdefault(a.pairing_id, []).append(a.flight_no)
+            row = per_pairing.setdefault(
+                a.pairing_id, {"legs": 0, "seats": 0, "fdp_breaches": 0, "max_delay_hours": 0.0}
+            )
+            row["legs"] += 1
+            row["seats"] += a.seats
+            row["fdp_breaches"] += int(a.breach)
+            row["max_delay_hours"] = max(row["max_delay_hours"], a.min_delay_hours)
         return {
             "station": self.station,
             "window": {"start": fmt_utc(self.start_utc), "end": fmt_utc(self.end_utc)},
@@ -131,6 +139,8 @@ class ClosureImpact:
             "affected_flight_numbers": [a.flight_no for a in self.assessments],
             "passengers_affected": sum(a.seats for a in self.assessments),
             "pairings_affected": pairings,
+            # totals per pairing, so a recovery plan never has to add legs up itself
+            "per_pairing": per_pairing,
             "fdp_breaches": [a.flight_no for a in self.assessments if a.breach],
             "per_flight": [a.to_dict() for a in self.assessments],
             "note": (
