@@ -7,7 +7,7 @@ frozen dataclasses so the rules engine can treat them as values.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from crew_ops_advisor.domain.timeutil import hours_between
@@ -113,12 +113,23 @@ class ReserveEntry:
     oncall_end: time
     note: str = ""
 
+    @property
+    def overnight(self) -> bool:
+        """An on-call window that wraps past midnight (22:00–06:00)."""
+        return self.oncall_end < self.oncall_start
+
     def covers(self, at: datetime) -> bool:
-        """True when `at` falls on a reserve date and inside the on-call window."""
-        if at.date() not in self.dates:
-            return False
+        """True when `at` falls inside the on-call window on a reserve date. A window that
+        wraps past midnight belongs to the date it starts on: 22:00–06:00 on the 15th covers
+        23:30 on the 15th and 05:00 on the 16th."""
         t = at.timetz()
-        return self.oncall_start <= t <= self.oncall_end
+        if not self.overnight:
+            return at.date() in self.dates and self.oncall_start <= t <= self.oncall_end
+        if t >= self.oncall_start:
+            return at.date() in self.dates
+        if t <= self.oncall_end:
+            return (at.date() - timedelta(days=1)) in self.dates
+        return False
 
 
 @dataclass(frozen=True, slots=True)
