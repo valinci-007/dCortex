@@ -107,3 +107,21 @@ identical to the baseline when empty, which the suite and the evals pin.
 **How we know.** `tests/integration/test_scenario.py` drives the sick-call → cover →
 cover-sick chain and the pass-through property; the eval reports were re-run with the
 scenario-aware registry (`evals/reports/tier123-agent-sdk-v3.*`).
+
+## 9. One SQLite connection shared across request threads (fixed)
+
+**Symptom.** On page load the UI fires several requests at once; one in a while
+`/api/watchlist` returned 500 with `fromisoformat: argument must be str` — a flight row read
+with a NULL date that is not NULL in the database.
+
+**Cause.** The datastore handed one `sqlite3` connection (`check_same_thread=False`) to every
+API worker thread. SQLite's serialised mode protects the C library, not the Python-level
+cursor and statement-cache state; two threads reading through the same connection can
+interleave and one gets a half-reset row. It surfaced only when the watchlist added a
+heavier query to the same instant as `/api/context` and `/api/chats`.
+
+**Fix.** `connect()` now returns a per-thread connection object: each worker thread opens
+its own connection lazily (the built database is read-only, so nothing needs coordinating);
+the chat store, which writes, serialises every operation on a lock. A test fires 40
+concurrent requests across five endpoints and asserts every one returns 200 — it fails on
+the old code and passes on the fix.
