@@ -32,6 +32,11 @@ Two projects: **`backend/`** (Python API, engine, tools, evals) and **`frontend/
 UI). The root `Makefile` drives both.
 
 ```bash
+./start.sh                      # one command: stop any running instance, build what is
+                                # missing, serve on http://127.0.0.1:8010 with the PII scrub
+                                # and the console audit trail on (--quiet, --full, --port,
+                                # --rebuild, --stop; ./start.sh --help)
+
 make setup                      # backend venv + deps, frontend node_modules
 make run                        # build DB + frontend, serve API + UI on http://127.0.0.1:8000
 make test                       # backend test suite (answer-key parity included)
