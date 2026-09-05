@@ -1,0 +1,1760 @@
+{
+  "mode": "agent-sdk",
+  "started_utc": "2026-09-05T07:38:06Z",
+  "passed": 35,
+  "total": 38,
+  "by_tier": {
+    "1": {
+      "passed": 16,
+      "total": 16
+    },
+    "2": {
+      "passed": 14,
+      "total": 14
+    },
+    "3": {
+      "passed": 5,
+      "total": 8
+    }
+  },
+  "latency": {
+    "p50_ms": 8617.4,
+    "p95_ms": 21727.5,
+    "max_ms": 24512.9
+  },
+  "cost_usd": 2.8133,
+  "rows": [
+    {
+      "question_id": "Q01",
+      "tier": 1,
+      "prompt": "Who is on reserve at BLR on 2026-09-15, and what are their on-call windows?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 11010.1,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_reserves"
+      ],
+      "cost_usd": 0.0818855,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 15,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_reserves",
+          "ok": true,
+          "elapsed_ms": 1.12,
+          "summary": "12 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9851.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "12 reserves at BLR tomorrow (2026-09-15), all active:\n\n**Flight deck**\n- C-3305 V. Menon \u2014 Captain, A320 \u2014 00:00\u201305:30Z\n- C-3310 D. Reddy \u2014 Captain, A320 \u2014 06:00\u201318:00Z\n- C-3315 M. Pillai \u2014 Captain, ATR72 \u2014 03:00\u201315:00Z\n- C-3311 K. Rao \u2014 FO, A320 \u2014 06:00\u201318:00Z\n- C-3312 P. Sharma \u2014 FO, A320 \u2014 00:00\u201312:00Z\n- C-3316 N. Verma \u2014 FO, ATR72 \u2014 03:00\u201315:00Z\n\n**Cabin**\n- C-2111 A. Gupta \u2014 SCC, A320/ATR72 \u2014 04:00\u201316:00Z (reachability 90 min)\n- C-3677 M. Iyer \u2014 SCC, A320/ATR72 \u2014 04:00\u201316:00Z\n- C-1329 P. Pillai \u2014 CC, A320/ATR72 \u2014 04:00\u201316:00Z\n- C-2248 H. Reddy \u2014 CC, A320/ATR72 \u2014 04:00\u201316:00Z (60 min)\n- C-4809 M. Das \u2014 CC, A320/ATR72 \u2014 00:00\u201312:00Z\n- C-5418 S. Das \u2014 CC, A320/ATR72 \u2014 04:00\u201316:00Z\n\nReachability is 45 min unless noted.\n\nReasoning:\n- Reserve roster for BLR on 2026-09-15: 12 reserves, ranks, ratings and on-call windows as listed.\n- A callout is only valid if the required report time falls inside the on-call window; RULE-BASE-07 keeps these BLR-based reserves free of positioning cost for BLR-origin duties."
+    },
+    {
+      "question_id": "Q02",
+      "tier": 1,
+      "prompt": "As of the snapshot, how many duty hours has C-1042 accrued in the 7 calendar days ending 2026-09-14, and how much headroom does that leave under RULE-DUTY-02?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 7179.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_duty_clock"
+      ],
+      "cost_usd": 0.15064550000000002,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 16,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_duty_clock",
+          "ok": true,
+          "elapsed_ms": 0.58,
+          "summary": "keys: crew_id, as_of_utc, duty_hours_7d, duty_window_7d, duty_limit_7d, duty_headroom_7d \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6898.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-1042 has 20.93 duty hours in the 7 days 2026-09-08 to 2026-09-14, leaving 39.07h headroom under the 60h limit.\n\nReasoning:\n- C-1042's duty clock as of 18:00Z: duty 7d = 20.93h, limit 60h, headroom 39.07h (RULE-DUTY-02); contributing days 2026-09-09 (9.99h) and 2026-09-12 (10.94h).\n- Same clock also shows 64.27 block hours in 28 days, 35.73h headroom (RULE-FLT-03)."
+    },
+    {
+      "question_id": "Q03",
+      "tier": 1,
+      "prompt": "Which flights depart DEL on 2026-09-15?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6027.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "cost_usd": 0.034502,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 7,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_flights",
+          "ok": true,
+          "elapsed_ms": 0.49,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5126.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "One departure from DEL tomorrow (2026-09-15):\n- DX402 DEL\u2013BLR, off 06:00Z / on 08:45Z, 2.75h block, VT-DXA (A320), 162 seats.\n\nReasoning:\n- Flight schedule filtered to DEL departures on 2026-09-15: count 1, total seats 162."
+    },
+    {
+      "question_id": "Q04",
+      "tier": 1,
+      "prompt": "List all certifications expiring within 30 days of 2026-09-15.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 7961.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_expiring_certifications"
+      ],
+      "cost_usd": 0.0477115,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 19,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_expiring_certifications",
+          "ok": true,
+          "elapsed_ms": 1.01,
+          "summary": "6 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7755.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Six certifications lapse between 2026-09-15 and 2026-10-15:\n\n- C-5417 S. Krishnan (Cabin Crew) \u2014 recurrent training, expires 2026-09-17\n- C-2087 R. Iyer (Captain) \u2014 licence, expires 2026-09-18\n- C-2091 H. Naidu (Captain) \u2014 medical class 1, expires 2026-09-23\n- C-3116 R. Naidu (First Officer) \u2014 dangerous goods, expires 2026-09-28\n- C-5020 K. Nair (First Officer) \u2014 recurrent training, expires 2026-10-03\n- C-2993 I. Kulkarni (First Officer) \u2014 medical class 1, expires 2026-10-08\n\nReasoning:\n- Certification register, window 2026-09-15 to 2026-10-15: 6 records, soonest first.\n- RULE-CERT-06: certifications must be valid on the duty date \u2014 the first three lapse inside the schedule week (2026-09-14 to 2026-09-20), so check their rostered duties after those dates."
+    },
+    {
+      "question_id": "Q05",
+      "tier": 1,
+      "prompt": "Which aircraft operates DX412 on 2026-09-15, and how many seats does it have?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6001.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_flight"
+      ],
+      "cost_usd": 0.036432000000000006,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 10,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_flight",
+          "ok": true,
+          "elapsed_ms": 0.77,
+          "summary": "keys: flight_id, flight_no, date, route, dep_station, arr_station \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5168.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "DX412 on 2026-09-15 (BLR\u2013BOM, 07:00Z\u201308:45Z) operates on VT-DXC, an A320 with 162 seats.\n\nReasoning:\n- Flight schedule for DX412 on 2026-09-15: aircraft VT-DXC, type A320, 162 seats, block 1.75h, pairing P-2291."
+    },
+    {
+      "question_id": "Q06",
+      "tier": 1,
+      "prompt": "What is C-3310's reserve on-call window and reachability?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6755.4,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_crew"
+      ],
+      "cost_usd": 0.0354795,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 6,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_crew",
+          "ok": true,
+          "elapsed_ms": 0.86,
+          "summary": "keys: crew_id, name, rank, base, ratings, seniority \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6100.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-3310 (D. Reddy, Captain, BLR, A320):\n- On-call window: 06:00\u201318:00Z, on reserve every day of the week 2026-09-14 to 2026-09-20.\n- Reachability: 45 minutes.\n\nReasoning:\n- Reserve roster / crew profile for C-3310: BLR-based reserve, window 06:00\u201318:00Z, reachability 45 min, no pairings rostered, disruption risk 0.17.\n- A callout is only valid if the required report time falls inside that window (RULE-BASE-07 for base)."
+    },
+    {
+      "question_id": "Q07",
+      "tier": 1,
+      "prompt": "What is C-2210's base and rating?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6892.4,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_crew"
+      ],
+      "cost_usd": 0.034575,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 6,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_crew",
+          "ok": true,
+          "elapsed_ms": 0.29,
+          "summary": "keys: crew_id, name, rank, base, ratings, seniority \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6239.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-2210 (S. Kapoor, Captain) is based at DEL and rated on A320.\n\nReasoning:\n- Crew record for C-2210: base DEL, ratings [A320], status active.\n- Also a reserve at DEL, on-call 03:00\u201315:00Z, on reserve all week (2026-09-14 to 2026-09-20), no pairings rostered \u2014 relevant under RULE-QUAL-05 and RULE-BASE-07 if considered for cover."
+    },
+    {
+      "question_id": "Q08",
+      "tier": 1,
+      "prompt": "Which crew are assigned to pairing P-2291, and in what roles?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6928.4,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_pairing"
+      ],
+      "cost_usd": 0.0389065,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 13,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_pairing",
+          "ok": true,
+          "elapsed_ms": 1.1,
+          "summary": "keys: pairing_id, aircraft, days, crew"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6337.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "P-2291 (VT-DXC, 2026-09-15 to 2026-09-16) is crewed by six:\n\n- C-1042 A. Nair \u2014 Captain\n- C-1694 S. Menon \u2014 First Officer\n- C-3005 H. Chandra \u2014 Senior Cabin Crew\n- C-4395 V. Rao \u2014 Cabin Crew\n- C-4273 P. Menon \u2014 Cabin Crew\n- C-1873 K. Joshi \u2014 Cabin Crew\n\nReasoning:\n- Pairing record P-2291: two duty days (BLR\u2192DEL 2026-09-15, DEL\u2192BLR 2026-09-16), crew list with roles as above."
+    },
+    {
+      "question_id": "Q09",
+      "tier": 1,
+      "prompt": "Which flights fly BLR\u2192BOM on 2026-09-17?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6641.1,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "cost_usd": 0.038132,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 11,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_flights",
+          "ok": true,
+          "elapsed_ms": 0.55,
+          "summary": "2 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5966.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Two BLR\u2192BOM legs on 2026-09-17:\n- DX431 \u2014 dep 03:30Z, arr 05:15Z, 1.75h block, VT-DXD (A320), 162 seats\n- DX412 \u2014 dep 07:00Z, arr 08:45Z, 1.75h block, VT-DXC (A320), 162 seats\n\nReasoning:\n- Flight schedule for 2026-09-17, BLR\u2013BOM: 2 legs, 324 seats total."
+    },
+    {
+      "question_id": "Q10",
+      "tier": 1,
+      "prompt": "How many flights operate on 2026-09-16 in total?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 8076.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_flights"
+      ],
+      "cost_usd": 0.064693,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 6,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_flights",
+          "ok": true,
+          "elapsed_ms": 1.11,
+          "summary": "21 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7301.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "21 flights operate on 2026-09-16, totalling 2,862 seats across all six aircraft.\n\nReasoning:\n- Flight schedule for 2026-09-16: count 21, total seats 2,862, spanning VT-DXA/B/C/D (A320) and VT-DXE/F (ATR72)."
+    },
+    {
+      "question_id": "Q11",
+      "tier": 1,
+      "prompt": "How many captains are based at DEL, and who are they?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 5832.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_crew"
+      ],
+      "cost_usd": 0.031931,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 1,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_crew",
+          "ok": true,
+          "elapsed_ms": 0.45,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 4998.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "One captain is based at DEL:\n- C-2210 \u2014 S. Kapoor, A320 rated, active, seniority 2, reachable in 60 min.\n\nReasoning:\n- Crew list filtered to base DEL, rank Captain: count 1."
+    },
+    {
+      "question_id": "Q12",
+      "tier": 1,
+      "prompt": "What is the longest block time in the schedule, and which flights have it?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6306.3,
+      "llm_calls": 1,
+      "tool_calls": [
+        "schedule_stats"
+      ],
+      "cost_usd": 0.034344,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 14,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "schedule_stats",
+          "ok": true,
+          "elapsed_ms": 4.03,
+          "summary": "keys: total_flights, flights_per_day, stations, fleet, longest_block, shortest_block"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5309.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Longest block time in the week is 2.75h, flown by DX401, DX402, DX588 and DX589.\n\nReasoning:\n- Flight schedule stats for the week 2026-09-14 to 2026-09-20 (147 flights): longest block 2.75h on those four flight numbers; shortest is 1.0h (DX403, DX404, DX453, DX454)."
+    },
+    {
+      "question_id": "Q13",
+      "tier": 1,
+      "prompt": "What is C-2087's rank, and total flight hours over the 28 days ending 2026-09-14?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 7774.9,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_crew",
+        "get_duty_clock"
+      ],
+      "cost_usd": 0.044132,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 17,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_crew",
+          "ok": true,
+          "elapsed_ms": 0.63,
+          "summary": "keys: crew_id, name, rank, base, ratings, seniority \u2026"
+        },
+        {
+          "kind": "tool",
+          "name": "get_duty_clock",
+          "ok": true,
+          "elapsed_ms": 0.43,
+          "summary": "keys: crew_id, as_of_utc, duty_hours_7d, duty_window_7d, duty_limit_7d, duty_headroom_7d \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7165.0,
+          "summary": "3 turn(s), 2 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-2087 (R. Iyer) is a Captain, BLR-based, A320-rated. Block hours in the 28 days ending 2026-09-14: 23.5h against the 100h limit \u2014 76.5h headroom.\n\nReasoning:\n- Crew profile for C-2087: rank Captain, base BLR, rating A320, active.\n- C-2087's duty clock: flight_hours_28d 23.5 over window 2026-08-18 to 2026-09-14, limit 100h (RULE-FLT-03), headroom 76.5h.\n- Same clock also shows 51.83h duty in the 7 days to 2026-09-14 \u2014 8.17h headroom under RULE-DUTY-02."
+    },
+    {
+      "question_id": "Q14",
+      "tier": 1,
+      "prompt": "Which stations does the network serve nonstop from BLR?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6455.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "list_routes"
+      ],
+      "cost_usd": 0.032691,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 2,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "list_routes",
+          "ok": true,
+          "elapsed_ms": 1.7,
+          "summary": "keys: dep_station, destinations, flights_per_destination, total_flights"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5771.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "BLR serves all seven other stations nonstop this week (73 departures total):\n- HYD \u2014 14\n- MAA \u2014 14\n- CCU \u2014 11\n- BOM \u2014 10\n- DEL \u2014 10\n- COK \u2014 7\n- GOI \u2014 7\n\nReasoning:\n- Flight schedule, nonstop destinations from BLR across the schedule week (2026-09-14 to 2026-09-20): 7 destinations, counts as listed."
+    },
+    {
+      "question_id": "Q15",
+      "tier": 1,
+      "prompt": "Who is the Senior Cabin Crew on VT-DXB's pairing on 2026-09-16?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6063.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "find_pairings"
+      ],
+      "cost_usd": 0.035587,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 10,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 3.4,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5321.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-3171, P. Chandra, on pairing P-2210 (VT-DXB, 2026-09-16).\n\nReasoning:\n- Pairing lookup for VT-DXB on 2026-09-16: single pairing P-2210, legs DX421\u2013DX424, Senior Cabin Crew slot held by C-3171."
+    },
+    {
+      "question_id": "Q16",
+      "tier": 1,
+      "prompt": "What is the disruption-risk score for C-1042 and what drives it?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6268.5,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_risk_signal"
+      ],
+      "cost_usd": 0.031733,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 4,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_risk_signal",
+          "ok": true,
+          "elapsed_ms": 0.45,
+          "summary": "keys: crew_id, as_of_utc, disruption_risk_score, drivers"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5533.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "C-1042's disruption-risk score is 0.78, driven by:\n- short-rest pattern over the last 14 days\n- two fatigue reports this month\n\nReasoning:\n- Risk signal for C-1042 as of 18:00Z: score 0.78 with the two drivers listed; this is a provided input, not a computed figure."
+    },
+    {
+      "question_id": "Q17",
+      "tier": 2,
+      "prompt": "Captain C-1042 calls in sick at 05:00Z on 15 Sep for pairing P-2291. Which flights are immediately uncrewed?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 9655.9,
+      "llm_calls": 1,
+      "tool_calls": [
+        "declare_unavailable",
+        "simulate_crew_removal"
+      ],
+      "cost_usd": 0.05716399999999999,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 24,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "declare_unavailable",
+          "ok": true,
+          "elapsed_ms": 1.07,
+          "summary": "keys: declared, impact, scenario, note"
+        },
+        {
+          "kind": "tool",
+          "name": "simulate_crew_removal",
+          "ok": true,
+          "elapsed_ms": 0.8,
+          "summary": "keys: crew_id, crew_name, rank, from_date, pairings_affected, uncovered_now \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9031.0,
+          "summary": "3 turn(s), 2 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Three legs on 2026-09-15 lose their Captain immediately \u2014 DX412, DX413, DX588 (BLR out, ending DEL), 486 passengers exposed.\n\nAlso at risk on 2026-09-16: DX589, DX590, DX591 (DEL back to BLR) \u2014 972 passengers at risk in total. VT-DXC overnights at DEL, so the cover must take the full remaining pairing.\n\nReasoning:\n- C-1042 (A. Nair, Captain) recorded unavailable from 2026-09-15 (sick); P-2291 Captain slot now vacant for both duty days.\n- Removal impact on P-2291: uncovered now DX412/DX413/DX588 on 2026-09-15; later legs DX589/DX590/DX591 on 2026-09-16 at risk.\n- Any replacement must hold the A320 rating (RULE-QUAL-05)."
+    },
+    {
+      "question_id": "Q18",
+      "tier": 2,
+      "prompt": "If Captain C-2087 is assigned to cover P-2291 from 15 Sep, does any rule breach? Give the detail.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 10070.4,
+      "llm_calls": 1,
+      "tool_calls": [
+        "check_assignment_legality"
+      ],
+      "cost_usd": 0.06978,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 23,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "check_assignment_legality",
+          "ok": true,
+          "elapsed_ms": 2.05,
+          "summary": "keys: crew_id, crew_name, rank, pairing_id, from_date, duty_dates \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9435.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Not legal \u2014 C-2087 (R. Iyer) breaches RULE-DUTY-02 on both duty days of P-2291:\n- 2026-09-15: 61.33h in the 7 days to 15 Sep \u2014 over the 60h limit by 1h20m\n- 2026-09-16: 61.08h in the 7 days to 16 Sep \u2014 over by 1h05m\n\nEverything else passes: FDP 9.50h (15th) and 10.75h (16th) against a 12.5h limit for 3 sectors; 37.50h block in 28 days (70.25h/62.50h headroom); rest 12.50h between the two duty days and rest complete 4h before report on the 15th; A320 rated; all 4 certifications valid (licence runs to 2026-09-18); day-off callout from own base BLR. Callout cost would be \u20b924,000, but the assignment is refused as it stands.\n\nReasoning:\n- Legality check for C-2087 on P-2291 from 2026-09-15, all seven rules, duty days 15\u201316 Sep.\n- Breaches driven by the daily duty history 09\u201314 Sep already logged on his duty clock, plus 9.50h and 10.75h from the pairing.\n- This would be a day-off callout, not a reserve callout."
+    },
+    {
+      "question_id": "Q19",
+      "tier": 2,
+      "prompt": "BLR is closed 08:00\u201314:00Z on 17 Sep. Which flights are affected?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 9263.5,
+      "llm_calls": 1,
+      "tool_calls": [
+        "station_closure_impact"
+      ],
+      "cost_usd": 0.07025400000000001,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 34,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "station_closure_impact",
+          "ok": true,
+          "elapsed_ms": 1.87,
+          "summary": "13 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 8634.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "13 flights across 6 pairings are hit, 1,836 passengers affected; 10 of the 13 breach RULE-FDP-01 after the minimum reopen delay.\n\n- P-2204: DX402, DX403, DX404 \u2014 all breach (max delay 5.75h, 486 seats)\n- P-2211: DX422, DX423, DX424 \u2014 all breach (max delay 5.75h, 486 seats)\n- P-2218: DX433, DX434 \u2014 both breach (max delay 6.0h, 324 seats)\n- P-2225: DX453 breaches (delay 6.5h); DX454 legal (3.75h)\n- P-2293: DX413 breaches (3.25h); DX588 legal (2.25h)\n- P-2232: DX462 only, crew legal on 5.75h delay\n\nReasoning:\n- Station closure impact for BLR 2026-09-17 08:00\u201314:00Z: 13 affected legs, minimum delay = reopen + 30 min turnaround.\n- FDP after delay vs limit per pairing from the same result; breaching tails need re-crewing from reserves or cancellation (RULE-FDP-01)."
+    },
+    {
+      "question_id": "Q20",
+      "tier": 2,
+      "prompt": "VT-DXA is delayed 90 minutes before DX401 on 16 Sep. Does the rostered crew breach any limit if they fly all four legs?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 12393.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "simulate_delay"
+      ],
+      "cost_usd": 0.1783165,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 28,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "simulate_delay",
+          "ok": true,
+          "elapsed_ms": 5.71,
+          "summary": "keys: aircraft, date, pairing_id, delay_hours, first_flight, flights \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 12523.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Yes \u2014 all six crew on P-2203 breach RULE-FDP-01 if they fly all four legs: with the 90-minute delay the duty runs 12.75h against a 12.0h limit (4 sectors), release slipping from 12:45Z to 14:15Z. They can legally complete the first three legs only; DX404 needs re-crewing or cancellation.\n\n- Breaching crew: C-3187 (CP), C-5375 (FO), C-3211 (SCC), C-2876, C-1542, C-5089 (CC)\n- All other rules pass for every one of them (duty 7-day, block 28-day, rest, rating, certifications, base).\n\nReasoning:\n- Delay simulation for VT-DXA / DX401 on 2026-09-16, pairing P-2203: FDP 11.25h before, 12.75h after, limit 12.0h at 4 sectors \u2014 margin \u22120.75h (RULE-FDP-01).\n- Legality check on each rostered crew member: single issue is RULE-FDP-01; RULE-DUTY-02, RULE-FLT-03, RULE-REST-04, RULE-QUAL-05, RULE-CERT-06, RULE-BASE-07 all pass.\n- Legal leg count 3; legs needing re-crew: DX404."
+    },
+    {
+      "question_id": "Q21",
+      "tier": 2,
+      "prompt": "Can C-2210 (DEL base) legally cover P-2291 if positioned to BLR on the morning of 15 Sep? What is the operational consequence?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 10678.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "check_assignment_legality"
+      ],
+      "cost_usd": 0.07265250000000001,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 26,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "check_assignment_legality",
+          "ok": true,
+          "elapsed_ms": 1.76,
+          "summary": "keys: crew_id, crew_name, rank, pairing_id, from_date, duty_dates \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9886.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Yes \u2014 legal on all seven rules, but conditional on RULE-BASE-07 deadhead positioning, and it costs a ~3h delay to the first departure.\n\n- Positioning: DX402 DEL\u2192BLR, arrives 2026-09-15T08:45Z; report slips from 06:00Z to 09:00Z \u2192 first departure delayed ~3.0h.\n- Cost \u20b941,200 total: callout \u20b918,500 + deadhead \u20b96,500 + delay \u20b916,200.\n\nReasoning:\n- Legality check for C-2210 (Capt, DEL, A320) on P-2291 from 2026-09-15: legal=true, no breaches; duty days 15\u201316 Sep.\n- RULE-FDP-01 pass both days (9.50h and 10.75h vs 12.5h limit, 3 sectors); RULE-DUTY-02 35.31h/60h; RULE-FLT-03 50.15h/100h; RULE-REST-04 12.50h vs 12h minimum \u2014 only 0.5h margin between the two duty days; RULE-QUAL-05 A320 rated; RULE-CERT-06 all four certifications valid.\n- RULE-BASE-07 conditional: base DEL \u2260 duty start BLR, so positioning is paid \u2014 figures above from the check's deadhead plan and cost breakdown."
+    },
+    {
+      "question_id": "Q22",
+      "tier": 2,
+      "prompt": "Can C-5417 legally operate their rostered VT-DXB duty on 19 Sep?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 21727.5,
+      "llm_calls": 3,
+      "tool_calls": [
+        "find_pairings",
+        "get_crew",
+        "check_rostered_legality",
+        "get_certifications"
+      ],
+      "cost_usd": 0.1187625,
+      "mode": "agent-sdk",
+      "confidence": "verified after correction",
+      "grounding": {
+        "checked": 27,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 1.35,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "get_crew",
+          "ok": true,
+          "elapsed_ms": 0.22,
+          "summary": "keys: crew_id, name, rank, base, ratings, seniority \u2026"
+        },
+        {
+          "kind": "tool",
+          "name": "check_rostered_legality",
+          "ok": true,
+          "elapsed_ms": 1.85,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "get_certifications",
+          "ok": true,
+          "elapsed_ms": 0.28,
+          "summary": "keys: crew_id, checked_on, all_valid, certifications"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 11413.0,
+          "summary": "5 turn(s), 4 tool request(s), stop=success"
+        },
+        {
+          "kind": "llm",
+          "name": "rewrite",
+          "ok": true,
+          "elapsed_ms": 0.0,
+          "summary": "rewrite requested: It cited 422, 423, 424 which appear in no data result \u2014 use only identifiers and figures returned by lookups."
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7731.0,
+          "summary": "1 turn(s), 0 tool request(s), stop=success"
+        }
+      ],
+      "answer": "No \u2014 C-5417 (S. Krishnan, Cabin Crew) cannot legally operate P-2213 on VT-DXB on 2026-09-19. Recurrent training expires 2026-09-17, so RULE-CERT-06 is breached; all six other rules pass.\n\nReasoning:\n- Pairing lookup: VT-DXB on 2026-09-19 is P-2213 (4 sectors), C-5417 rostered as Cabin Crew.\n- Legality check on P-2213: RULE-FDP-01 11.25h vs 12.0h limit (4 sectors), RULE-DUTY-02 32.89h/60h, RULE-FLT-03 58.46h/100h, RULE-REST-04 60.75h rest, RULE-QUAL-05 rated A320, RULE-BASE-07 n/a (rostered) \u2014 all pass.\n- Certification record: recurrent_training valid to 2026-09-17 \u2192 invalid on the duty date (RULE-CERT-06 breach). Their earlier duty P-2210 on 2026-09-16 is unaffected."
+    },
+    {
+      "question_id": "Q23",
+      "tier": 2,
+      "prompt": "A crew is released at 15:30Z on 16 Sep. What is the earliest they may report next?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 6149.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "earliest_next_report"
+      ],
+      "cost_usd": 0.0316585,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 3,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "earliest_next_report",
+          "ok": true,
+          "elapsed_ms": 0.16,
+          "summary": "keys: release_utc, earliest_report_utc, min_rest_hours, rule"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 5366.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Earliest next report: 2026-09-17T03:30Z.\n\nReasoning:\n- Rest calculation on a 15:30Z release on 2026-09-16: minimum rest 12h (RULE-REST-04), giving report no earlier than 03:30Z the next day."
+    },
+    {
+      "question_id": "Q24",
+      "tier": 2,
+      "prompt": "Can reserve C-3305 cover the FULL pairing P-2291 (both days)? Why or why not?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 10443.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "check_assignment_legality",
+        "get_pairing"
+      ],
+      "cost_usd": 0.0761685,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 23,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "check_assignment_legality",
+          "ok": true,
+          "elapsed_ms": 1.67,
+          "summary": "keys: crew_id, crew_name, rank, pairing_id, from_date, duty_dates \u2026"
+        },
+        {
+          "kind": "tool",
+          "name": "get_pairing",
+          "ok": true,
+          "elapsed_ms": 0.73,
+          "summary": "keys: pairing_id, aircraft, days, crew"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9639.0,
+          "summary": "3 turn(s), 2 tool request(s), stop=success"
+        }
+      ],
+      "answer": "No \u2014 C-3305 cannot take the full P-2291 (2026-09-15 + 2026-09-16). Two blockers:\n- RULE-DUTY-02 breach on day 2: 68.25h duty in the 7 days ending 2026-09-16, 8h15m over the 60h limit (day 1 alone leaves only 0.50h headroom at 59.50h).\n- Reserve availability: his on-call window is 00:00\u201305:30Z, which does not cover the 06:00Z report on 2026-09-15.\n\nEverything else passes: FDP 9.50h/10.75h vs 12.5h for 3 sectors, block 47.60h/100h, rest 12.50h between days, A320 rated, all 4 certifications valid, BLR own-base callout (\u20b918,500 if it were usable).\n\nReasoning:\n- Legality check for C-3305 on P-2291 across both duty days: 7 rules checked, one breach (RULE-DUTY-02) plus availability note from the reserve roster.\n- Pairing record P-2291 (VT-DXC): day 1 BLR\u2192DEL report 06:00Z/release 15:30Z, day 2 DEL\u2192BLR report 04:00Z/release 14:45Z \u2014 so the cover must hold both days."
+    },
+    {
+      "question_id": "Q25",
+      "tier": 2,
+      "prompt": "If DX404 on 16 Sep is cancelled, how many passengers are affected and what is the direct cancellation cost?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 8055.7,
+      "llm_calls": 1,
+      "tool_calls": [
+        "cancellation_impact"
+      ],
+      "cost_usd": 0.0343745,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 15,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "cancellation_impact",
+          "ok": true,
+          "elapsed_ms": 0.76,
+          "summary": "keys: flight_id, flight_no, date, route, passengers_affected, direct_cancellation_cost_inr \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7218.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "DX404 on 2026-09-16 (MAA-BLR): 162 passengers affected, direct cancellation cost INR 250,000.\n\nReasoning:\n- Cancellation impact for DX404 on 2026-09-16: passengers_affected 162, cost from the cost table INR 250,000.\n- Pairing P-2203 is released, freeing 6 crew (C-3187, C-5375, C-3211, C-2876, C-1542, C-5089)."
+    },
+    {
+      "question_id": "Q26",
+      "tier": 2,
+      "prompt": "Which crew have 45 or more duty hours in the 7 days ending 2026-09-15 (including any planned duty that day)?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 9158.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "crew_near_limits"
+      ],
+      "cost_usd": 0.03891650000000001,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 14,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "crew_near_limits",
+          "ok": true,
+          "elapsed_ms": 33.43,
+          "summary": "2 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 8736.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Two crew are at 45h or more:\n\n- C-2087 (R. Iyer, Captain) \u2014 51.83h duty in 7d, 8.17h headroom; 23.5h block in 28d\n- C-3305 (V. Menon, Captain) \u2014 50.0h duty in 7d, 10.0h headroom; 33.6h block in 28d\n\nNeither has planned duty on 2026-09-15 itself.\n\nReasoning:\n- Rolling-limit check for the 7 days ending 2026-09-15, threshold 45h, counting history plus rostered duty through that date: 2 crew returned.\n- Limits applied: RULE-DUTY-02 (60h/7d) and RULE-FLT-03 (100h/28d); both remain under limit but C-2087 has the thinnest headroom."
+    },
+    {
+      "question_id": "Q27",
+      "tier": 2,
+      "prompt": "The VT-DXE captain is sick on 16 Sep (called 01:30Z). Which reserve captains' on-call windows cover the callout, and are they qualified?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 17276.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "find_pairings",
+        "get_pairing",
+        "reserve_coverage"
+      ],
+      "cost_usd": 0.087975,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 19,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 3.09,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "get_pairing",
+          "ok": true,
+          "elapsed_ms": 0.63,
+          "summary": "keys: pairing_id, aircraft, days, crew"
+        },
+        {
+          "kind": "tool",
+          "name": "reserve_coverage",
+          "ok": true,
+          "elapsed_ms": 1.59,
+          "summary": "keys: required_report_utc, filters, eligible, excluded, candidates, rules"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 16852.0,
+          "summary": "4 turn(s), 3 tool request(s), stop=success"
+        }
+      ],
+      "answer": "**One reserve captain is both in-window and qualified: C-3315 (M. Pillai).** VT-DXE on 2026-09-16 is P-2224, Captain C-3231 (L. Verma), report 03:00Z at BLR.\n\n- **C-3315** \u2014 window 03:00\u201315:00Z covers the 03:00Z report; ATR72-rated, BLR-based, reachable in 45 min. **Eligible.**\n- **C-3305** \u2014 window 00:00\u201305:30Z does cover 03:00Z, but A320 only, no ATR72 (RULE-QUAL-05). Not eligible.\n- **C-3310** \u2014 window 06:00\u201318:00Z does not cover 03:00Z, and no ATR72 rating. Not eligible.\n- **C-2210** \u2014 window 03:00\u201315:00Z covers, but no ATR72 rating and DEL-based against a BLR start (RULE-BASE-07 deadhead). Not eligible.\n\nReasoning:\n- Pairing lookup for VT-DXE on 2026-09-16: P-2224, single duty day, report 03:00Z / release 11:15Z, 4 sectors, BLR\u2013BLR.\n- Reserve roster screened at report 03:00Z for Captain / ATR72 / BLR: 1 eligible, 3 excluded with reasons as listed.\n- Rules applied: RULE-QUAL-05 (rating), RULE-BASE-07 (own base), plus the on-call window test for reserve callout.\n- I have not recorded the sick call or committed a cover \u2014 say the word and I'll declare C-3231 unavailable from 2026-09-16 and run full legality/cost on C-3315."
+    },
+    {
+      "question_id": "Q28",
+      "tier": 2,
+      "prompt": "Captain C-5837 (VT-DXA line, works 14/17/20 Sep) is proposed to cover P-2291. Legal?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 10536.0,
+      "llm_calls": 1,
+      "tool_calls": [
+        "check_assignment_legality"
+      ],
+      "cost_usd": 0.0806365,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 30,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "check_assignment_legality",
+          "ok": true,
+          "elapsed_ms": 2.49,
+          "summary": "keys: crew_id, crew_name, rank, pairing_id, from_date, duty_dates \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9991.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "**No \u2014 C-5837 (A. Sharma, Captain) covering P-2291 is not legal.** The two P-2291 duty days themselves check out, but the release at 2026-09-16T14:45Z leaves only 10.75h before their next rostered pairing P-2204 reports at 2026-09-17T01:30Z \u2014 a RULE-REST-04 breach (minimum 12h). Note their rostered days include 17 Sep (P-2204), not just 14/17/20 as framed.\n\nReasoning:\n- Legality check on C-5837 for P-2291 (day-off callout, from 2026-09-15, duty days 15\u201316 Sep): 6 of 7 rules pass \u2014 RULE-FDP-01 9.50h/10.75h vs 12.5h limit; RULE-DUTY-02 tightest 54.00h vs 60h; RULE-FLT-03 tightest 77.51h vs 100h; RULE-QUAL-05 A320 rated; RULE-CERT-06 all 4 certifications valid; RULE-BASE-07 own base BLR.\n- RULE-REST-04 breach downstream: 10.75h rest, margin \u22121.25h, between P-2291 release 16 Sep 14:45Z and P-2204 report 17 Sep 01:30Z.\n- Callout cost had it been legal: \u20b924,000 from the cost table."
+    },
+    {
+      "question_id": "Q29",
+      "tier": 2,
+      "prompt": "Station HYD is closed 05:00\u201309:00Z on 19 Sep. Which flights are affected?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 8042.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "station_closure_impact"
+      ],
+      "cost_usd": 0.043150999999999995,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 13,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "station_closure_impact",
+          "ok": true,
+          "elapsed_ms": 0.84,
+          "summary": "2 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 7164.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Two flights, both on P-2234, 144 passengers exposed \u2014 no FDP breaches, delay only.\n\n- DX461 (arrival HYD 06:30Z) \u2014 min delay 3.0h, crew FDP after delay 8.25h vs 13h limit\n- DX462 (departure HYD 07:15Z) \u2014 min delay 2.25h, crew FDP after delay 7.5h vs 13h limit\n\nReasoning:\n- Closure impact for HYD on 2026-09-19, 05:00\u201309:00Z: 2 affected legs, 144 seats, pairing P-2234 (max delay 3.0h).\n- Minimum delay = reopen + 30 min turnaround; both crews stay legal under RULE-FDP-01, so action is delay, no re-crewing or cancellation."
+    },
+    {
+      "question_id": "Q30",
+      "tier": 2,
+      "prompt": "Which single flight leg has the most seats at risk if cancelled, and why?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 7779.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "seats_at_risk"
+      ],
+      "cost_usd": 0.034200999999999995,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 10,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "seats_at_risk",
+          "ok": true,
+          "elapsed_ms": 2.9,
+          "summary": "keys: most_seats_at_risk, compared_with, by_aircraft_type, cancellation_cost_per_leg_inr, reason"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6906.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Any A320 leg \u2014 162 seats at risk, e.g. DX401. No single leg stands out above the rest: exposure is set by aircraft type, and all 105 A320 legs carry the same 162 seats, versus 72 seats on each of the 42 ATR72 legs. Cancellation cost is INR 250,000 per leg either way.\n\nReasoning:\n- Seats-at-risk view of the flight schedule: A320 = 162 seats \u00d7 105 legs (example DX401); ATR72 = 72 seats \u00d7 42 legs (example DX451).\n- Cost table: cancellation INR 250,000 per flight, flat by leg."
+    },
+    {
+      "question_id": "Q31",
+      "tier": 3,
+      "prompt": "Captain C-1042 is out for pairing P-2291 (15\u201316 Sep). Produce ranked resolution options with costs and reasoning.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 14784.2,
+      "llm_calls": 1,
+      "tool_calls": [
+        "recommend_cover"
+      ],
+      "cost_usd": 0.09355949999999999,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 48,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "recommend_cover",
+          "ok": true,
+          "elapsed_ms": 13.44,
+          "summary": "keys: impact, pairing_id, role, from_date, duty_dates, uncovered_flights \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 13998.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "**Recommend option 1: reserve callout C-3310 \u2014 \u20b918,500, no delay, full pairing covered.** P-2291 is a two-day out-and-back (BLR\u2192DEL 15 Sep, DEL\u2192BLR 16 Sep), 6 legs, 972 passengers at risk; the cover must take the whole remaining pairing.\n\nRanked options:\n- **1. C-3310 \u2014 reserve callout, \u20b918,500, 0h delay.** BLR-based, A320-rated, on-call 06:00\u201318:00Z, reachable 45 min. All seven rules pass; RULE-DUTY-02 headroom 39.8h.\n- **2. C-1526 \u2014 day-off callout, \u20b924,000, 0h delay.** BLR, A320, reachable 90 min. All rules pass; headroom 10.3h on 2026-09-20.\n- **3. C-3983 \u2014 day-off callout, \u20b924,000, 0h delay.** BLR, A320, reachable 45 min; headroom 10.1h on 2026-09-16.\n- **4. C-5566 \u2014 day-off callout, \u20b924,000, 0h delay.** BLR, A320, reachable 60 min; headroom 19.5h on 2026-09-18.\n- **5. C-2210 \u2014 reserve + deadhead from DEL, \u20b941,200, 3.0h delay** (callout 18,500 + positioning 6,500 + delay 16,200). RULE-BASE-07 positioning required; deadheads on DX402 arr 08:45Z for 09:00Z report.\n- **6. Cancel all 6 legs \u2014 \u20b91,500,000, 972 passengers stranded.** Last resort.\n\nReasoning:\n- Cover ranking for C-1042 on P-2291 from 2026-09-15: required report 06:00Z at BLR, 24 candidates checked, ranked by cost then delay.\n- Uncovered now: DX412/DX413/DX588 on 15 Sep (486 pax); also at risk DX589/DX590/DX591 on 16 Sep \u2014 972 total.\n- Notable exclusions: C-3305 reserve window 00:00\u201305:30Z misses the 06:00Z report; C-2087 and C-2143 breach RULE-DUTY-02; several breach RULE-REST-04; six captains lack A320 (RULE-QUAL-05).\n- Nothing committed yet \u2014 say the word and I'll apply C-3310 and draft the callout."
+    },
+    {
+      "question_id": "Q32",
+      "tier": 3,
+      "prompt": "Both A320 captains (VT-DXA and VT-DXB) are sick at 00:30Z on 18 Sep. Give the optimal joint crewing plan.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 22037.9,
+      "llm_calls": 3,
+      "tool_calls": [
+        "find_pairings",
+        "find_pairings",
+        "joint_cover_plan"
+      ],
+      "cost_usd": 0.1655465,
+      "mode": "agent-sdk",
+      "confidence": "verified after correction",
+      "grounding": {
+        "checked": 31,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 3.3,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 2.13,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "joint_cover_plan",
+          "ok": true,
+          "elapsed_ms": 20.7,
+          "summary": "keys: events, plan, total_cost_inr, note"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 13240.0,
+          "summary": "4 turn(s), 3 tool request(s), stop=success"
+        },
+        {
+          "kind": "llm",
+          "name": "rewrite",
+          "ok": true,
+          "elapsed_ms": 0.0,
+          "summary": "rewrite requested: It cited 2026-09-18T00:30Z which appear in no data result \u2014 use only identifiers and figures returned by lookups."
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6043.0,
+          "summary": "1 turn(s), 0 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Optimal joint plan \u2014 total \u20b942,500, no delay, all 8 legs covered legally:\n- **P-2205** (VT-DXA, Capt C-3940 out): **C-3305** \u2014 reserve callout, \u20b918,500, all legs.\n- **P-2212** (VT-DXB, Capt C-1938 out): **C-1017** \u2014 day-off callout, \u20b924,000, all legs.\n\nReasoning:\n- Pairing lookup for 2026-09-18: VT-DXA = P-2205 (DX401\u2013DX404, Capt C-3940); VT-DXB = P-2212 (DX421\u2013DX424, Capt C-1938).\n- Joint cover plan (both out): cheapest combination with no one assigned twice; total_cost_inr 42,500, 0 delay hours.\n- Both options pass all seven rules (RULE-FDP-01, DUTY-02, FLT-03, REST-04, QUAL-05, CERT-06, BASE-07); both BLR-based and A320-rated, margins \"comfortable\".\n- Only one reserve captain (C-3305) fits \u2014 reserve C-3310's on-call window 06:00\u201318:00Z misses the 01:30Z/02:00Z reports, so the second slot must go to a day-off callout (C-1017 cheapest at \u20b924,000; C-1042/C-1526/C-2087 equal cost as alternates).\n- Nothing has been committed \u2014 say the word and I'll apply both covers."
+    },
+    {
+      "question_id": "Q33",
+      "tier": 3,
+      "prompt": "After the 90-minute delay to VT-DXA on 16 Sep, what should Crew Control do about the FDP breach?",
+      "passed": false,
+      "score": 0.714,
+      "missing": [
+        "Delayed 3-leg duty FDP 9.5h vs 12.5h limit \u2014 legal. Reserve set covers the last sector (callout window and 12h-rest all satisfied).",
+        "Legal but ~3.3x more expensive than re-crewing one leg; 162 passengers stranded."
+      ],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 13092.4,
+      "llm_calls": 1,
+      "tool_calls": [
+        "resolve_delay_options",
+        "simulate_delay"
+      ],
+      "cost_usd": 0.30915999999999993,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 39,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "resolve_delay_options",
+          "ok": true,
+          "elapsed_ms": 7.66,
+          "summary": "keys: aircraft, date, pairing_id, delay_hours, first_flight, flights \u2026"
+        },
+        {
+          "kind": "tool",
+          "name": "simulate_delay",
+          "ok": true,
+          "elapsed_ms": 6.15,
+          "summary": "keys: aircraft, date, pairing_id, delay_hours, first_flight, flights \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 12186.0,
+          "summary": "3 turn(s), 2 tool request(s), stop=success"
+        }
+      ],
+      "answer": "**Recommendation: run P-2203's rostered crew on DX401\u2013DX403 (delayed), and call out a full reserve set for DX404 \u2014 \u20b975,000, legal.**\n\n- Breach: delayed duty runs 12.75h vs the 12.0h limit for 4 sectors (RULE-FDP-01); release slips from 12:45Z to 14:15Z. All six rostered crew (C-3187, C-5375, C-3211, C-2876, C-1542, C-5089) fail only that rule; DX404 is the leg needing re-crew.\n- Reserve set for DX404 (report 11:45Z, FDP 2.50h): CPT C-3310, FO C-3311, SCC C-3677, CC C-1329 / C-4809 / C-5418.\n- Fallback: cancel DX404 \u2014 legal but \u20b9250,000 and 162 passengers stranded.\n\nReasoning:\n- Delay assessment for VT-DXA on 2026-09-16 (pairing P-2203, DX401\u2013DX404): FDP 11.25h \u2192 12.75h vs 12.0h limit, 3 legal legs, DX404 to re-crew (RULE-FDP-01).\n- Full seven-rule check on each rostered crew member: only RULE-FDP-01 breaches; duty/block/rest/qual/cert all pass.\n- Ranked delay options: rank 1 prefix + reserve tail \u20b975,000; rank 2 cancellation \u20b9250,000, per the cost table.\n- Nothing committed \u2014 say the word and I'll apply the reserve set."
+    },
+    {
+      "question_id": "Q34",
+      "tier": 3,
+      "prompt": "C-5417's recurrent training lapsed. Resolve their 19 Sep assignment.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 16203.3,
+      "llm_calls": 1,
+      "tool_calls": [
+        "get_crew",
+        "get_certifications",
+        "declare_unavailable",
+        "recommend_cover"
+      ],
+      "cost_usd": 0.13517400000000002,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 35,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "get_crew",
+          "ok": true,
+          "elapsed_ms": 0.7,
+          "summary": "keys: crew_id, name, rank, base, ratings, seniority \u2026"
+        },
+        {
+          "kind": "tool",
+          "name": "get_certifications",
+          "ok": true,
+          "elapsed_ms": 0.16,
+          "summary": "keys: crew_id, checked_on, all_valid, certifications"
+        },
+        {
+          "kind": "tool",
+          "name": "declare_unavailable",
+          "ok": true,
+          "elapsed_ms": 0.96,
+          "summary": "keys: declared, impact, scenario, note"
+        },
+        {
+          "kind": "tool",
+          "name": "recommend_cover",
+          "ok": true,
+          "elapsed_ms": 29.28,
+          "summary": "keys: impact, pairing_id, role, from_date, duty_dates, uncovered_flights \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 15705.0,
+          "summary": "5 turn(s), 4 tool request(s), stop=success"
+        }
+      ],
+      "answer": "**Recommended: call out reserve C-4809 for the Cabin Crew slot on P-2213, 2026-09-19 \u2014 \u20b99,500, no delay, all four legs covered.**\n\n- C-5417's recurrent training expires 2026-09-17, so they are illegal on 19 Sep under RULE-CERT-06; recorded unavailable from 2026-09-18. Their 16 Sep pairing P-2210 is unaffected.\n- Vacancy: P-2213 (VT-DXB), DX421/422/423/424 on 2026-09-19, report 02:00Z, 648 passengers exposed.\n- Next best: day-off callouts C-1021 / C-1385 at \u20b912,500. Cancelling all four legs would be \u20b910,00,000.\n\nReasoning:\n- C-5417's certification record: recurrent_training valid to 2026-09-17, invalid on 2026-09-19 (RULE-CERT-06); licence, medical and DG all valid.\n- Cover ranking for the P-2213 Cabin Crew slot: 29 candidates checked against all seven rules; C-4809 is BLR-based, A320-rated, on-call 00:00\u201312:00Z, reachable in 45 min, RULE-DUTY-02 headroom 48.8h.\n- Excluded per the ranking: reserves C-1329/C-2248/C-5418 (window starts 04:00Z, after the 02:00Z report), several on RULE-REST-04 overlaps, several on RULE-QUAL-05 (no A320).\n\nSay the word and I'll commit C-4809 and draft the callout."
+    },
+    {
+      "question_id": "Q35",
+      "tier": 3,
+      "prompt": "BLR closes 08:00\u201314:00Z on 17 Sep. Outline the recovery plan across affected pairings.",
+      "passed": false,
+      "score": 0.878,
+      "missing": [
+        "5",
+        "3.75",
+        "2.75",
+        "2.25",
+        "1.75"
+      ],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 14010.8,
+      "llm_calls": 1,
+      "tool_calls": [
+        "station_closure_impact"
+      ],
+      "cost_usd": 0.08114750000000001,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 65,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "station_closure_impact",
+          "ok": true,
+          "elapsed_ms": 3.68,
+          "summary": "13 row(s)"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 13175.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "BLR closed 08:00\u201314:00Z on 2026-09-17 hits 13 legs across 6 pairings, 1,836 passengers, with 10 legs breaching RULE-FDP-01 after the minimum reopen delay.\n\nRecovery plan, worst first:\n- **P-2204 (DX402/403/404)** \u2014 486 seats, all 3 legs breach (FDP 17.0 / 16.25 / 13.5 vs 12.0 limit), max delay 5.75h. Re-crew the whole day from reserves; the rostered crew cannot take any leg after the reopen.\n- **P-2211 (DX422/423/424)** \u2014 486 seats, all 3 legs breach (17.0 / 16.25 / 13.0 vs 12.0), max delay 5.75h. Same treatment: full re-crew or cancel the tail.\n- **P-2218 (DX433/DX434)** \u2014 324 seats, both legs breach (15.75 and 12.5 vs 12.0), max delay 6.0h. Re-crew both legs.\n- **P-2293 (DX413/DX588)** \u2014 324 seats, DX413 breaches (12.75 vs 12.5, delay 3.25h); DX588 stays legal at 11.75. Re-crew DX413 only.\n- **P-2225 (DX453/DX454)** \u2014 144 seats, DX453 breaches (14.75 vs 12.0, delay 6.5h); DX454 is legal at exactly 12.0. Re-crew DX453.\n- **P-2232 (DX462)** \u2014 72 seats, no breach: delay 5.75h, FDP 11.0 vs 13.0. Delay only, crew stays.\n\nReasoning:\n- Station closure impact for BLR on 2026-09-17, 08:00\u201314:00Z: 13 affected legs, passengers_affected 1,836, six pairings listed with per-pairing legs/seats/breach counts.\n- Minimum delay per leg = reopen + 30 min turnaround; FDP after delay compared against RULE-FDP-01 limit (13h minus 0.5h per sector beyond the 2nd) per leg in that result.\n- Legs flagged breach carry the action \"re-crew tail legs from reserves or cancel\"; DX462, DX454 and DX588 are flagged crew-legal.\n- Next step if you want it: rank reserve cover for the specific breaching pairings, or price the cancel option per leg."
+    },
+    {
+      "question_id": "Q36",
+      "tier": 3,
+      "prompt": "Draft the callout notification to C-3310 for covering P-2291.",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 10339.6,
+      "llm_calls": 1,
+      "tool_calls": [
+        "draft_callout_notification"
+      ],
+      "cost_usd": 0.051902,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 20,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "draft_callout_notification",
+          "ok": true,
+          "elapsed_ms": 1.3,
+          "summary": "keys: crew_id, crew_name, rank, pairing_id, aircraft, reason \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 9435.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Callout drafted for C-3310 (D. Reddy, Captain) on P-2291 (VT-DXC), 2 duty days, ack by 2026-09-14T18:30Z.\n\n**CALLOUT \u2014 Crew ID C-3310 (D. Reddy, Captain) \u2014 Pairing ID P-2291**\nYou are assigned to pairing P-2291 (VT-DXC) due to crew unavailability.\n- Day 1 (2026-09-15): report 06:00Z at BLR crew room; DX412 BLR-BOM 07:00Z-08:45Z, DX413 BOM-BLR 09:30Z-11:15Z, DX588 BLR-DEL 12:15Z-15:00Z; release 15:30Z. Overnight at DEL \u2014 hotel arranged.\n- Day 2 (2026-09-16): report 04:00Z at DEL crew room; DX589 DEL-BLR 05:00Z-07:45Z, DX590 BLR-CCU 08:30Z-11:00Z, DX591 CCU-BLR 11:45Z-14:15Z; release 14:45Z.\n- Acknowledgement deadline 2026-09-14T18:30Z (30 minutes): reply ACK P-2291.\n- Contact: Crew Control desk, BLR.\n\nReasoning:\n- Roster detail for P-2291: report/release times, flights per day, DEL overnight with hotel arranged.\n- Crew record for C-3310: D. Reddy, Captain.\n- Draft only \u2014 nothing committed to the roster; say the word and I'll apply the cover (runs the seven-rule check first)."
+    },
+    {
+      "question_id": "Q37",
+      "tier": 3,
+      "prompt": "What is the cheapest legal way to cover the VT-DXF First Officer on 20 Sep if they call sick at 03:30Z?",
+      "passed": true,
+      "score": 1.0,
+      "missing": [],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 12535.8,
+      "llm_calls": 1,
+      "tool_calls": [
+        "find_pairings",
+        "recommend_cover"
+      ],
+      "cost_usd": 0.09362400000000001,
+      "mode": "agent-sdk",
+      "confidence": "verified",
+      "grounding": {
+        "checked": 31,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "find_pairings",
+          "ok": true,
+          "elapsed_ms": 3.29,
+          "summary": "1 row(s)"
+        },
+        {
+          "kind": "tool",
+          "name": "recommend_cover",
+          "ok": true,
+          "elapsed_ms": 6.04,
+          "summary": "keys: impact, pairing_id, role, from_date, duty_dates, uncovered_flights \u2026"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 11486.0,
+          "summary": "3 turn(s), 2 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Cheapest legal cover: reserve callout of **C-3316** for the First Officer slot on P-2235 (VT-DXF, 2026-09-20) \u2014 18,500 INR, no delay, all legs covered.\n\n- Next best: C-1313 / C-1317 / C-2085 / C-3057 day-off callouts at 24,000 INR each.\n- Last resort: cancelling both legs, 500,000 INR, 144 passengers.\n\nReasoning:\n- VT-DXF on 2026-09-20 runs P-2235 (DX461, DX462), FO C-4520 R. Sharma; required report 2026-09-20T04:00Z, 144 passengers exposed.\n- Cover ranking for that FO slot: C-3316 is BLR-based, ATR72-rated, on-call 03:00\u201315:00Z, reachable in 45 min; all seven rules pass (RULE-FDP-01 \u2026 RULE-BASE-07), RULE-DUTY-02 headroom 54.8h.\n- 21 candidates excluded on RULE-QUAL-05 (no ATR72 rating), C-3136 on RULE-REST-04 (overlaps P-2228).\n- Nothing has been recorded on the working scenario \u2014 say the word to declare C-4520 out and apply C-3316."
+    },
+    {
+      "question_id": "Q38",
+      "tier": 3,
+      "prompt": "If the desk wants a standing morning briefing, which three data points per aircraft line should it surface and why?",
+      "passed": false,
+      "score": 0.333,
+      "missing": [
+        "crew legality headroom (7d duty) for today's rostered crew",
+        "risk_signals for today's rostered crew (provided input)"
+      ],
+      "refused": false,
+      "error": null,
+      "elapsed_ms": 24512.9,
+      "llm_calls": 3,
+      "tool_calls": [
+        "morning_briefing"
+      ],
+      "cost_usd": 0.1157855,
+      "mode": "agent-sdk",
+      "confidence": "verified after correction",
+      "grounding": {
+        "checked": 34,
+        "unsupported": [],
+        "ok": true
+      },
+      "redactions": [],
+      "trace": [
+        {
+          "kind": "tool",
+          "name": "morning_briefing",
+          "ok": true,
+          "elapsed_ms": 22.9,
+          "summary": "keys: date, lines, surfaced"
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 14948.0,
+          "summary": "2 turn(s), 1 tool request(s), stop=success"
+        },
+        {
+          "kind": "llm",
+          "name": "rewrite",
+          "ok": true,
+          "elapsed_ms": 0.0,
+          "summary": "rewrite requested: It cited 0.7 which appear in no data result \u2014 use only identifiers and figures returned by lookups."
+        },
+        {
+          "kind": "llm",
+          "name": "agent-sdk",
+          "ok": true,
+          "elapsed_ms": 6131.0,
+          "summary": "1 turn(s), 0 tool request(s), stop=success"
+        }
+      ],
+      "answer": "Three per line, as the standing briefing is built:\n\n- **Tightest 7-day duty headroom on the line (plus cert validity)** \u2014 shows how much room the line has before RULE-DUTY-02 bites, and RULE-CERT-06 flags anyone who can't legally operate. E.g. tomorrow (2026-09-15) VT-DXA is tightest at 27.83h headroom (C-3988); all lines show certs valid.\n- **Highest disruption-risk score among the rostered crew** \u2014 one number telling you which line is most likely to need a cover. Tomorrow: VT-DXC 0.78 (C-1042, Captain), VT-DXA 0.71, VT-DXB 0.69; VT-DXF lowest at 0.15.\n- **Eligible reserves at that line's report time** \u2014 whether a replacement exists before you need one, filtered by on-call window, rating and base (RULE-QUAL-05, RULE-BASE-07). VT-DXC at 06:00Z has 9 eligible; the early lines (VT-DXA 01:30Z, VT-DXB 02:00Z, VT-DXD 02:30Z) have only 3 each \u2014 thinnest cover exactly when risk is high.\n\nReasoning:\n- Morning briefing for 2026-09-15, six aircraft lines (VT-DXA\u2026VT-DXF) with pairing, report time, per-crew headroom, cert status, risk score and eligible reserves.\n- The three points pair exposure (risk) with capacity to absorb it (headroom, reserves); the combination that stands out is VT-DXA/VT-DXB \u2014 early report, 27.83h and 28.77h tightest headroom, risk 0.71 and 0.69, only 3 reserves in window.\n- Rules referenced: RULE-DUTY-02, RULE-CERT-06, RULE-QUAL-05, RULE-BASE-07."
+    }
+  ]
+}

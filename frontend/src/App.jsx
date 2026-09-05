@@ -89,7 +89,6 @@ export default function App() {
       setActiveId(null);
       setMessages([]);
       remember(null);
-      api.watchlist().then(setWatchlist).catch(() => {});
       return;
     }
     try {
@@ -98,7 +97,6 @@ export default function App() {
       setMessages(data.messages.map(toView));
       remember(id);
       setError(null);
-      api.watchlist(null, id).then(setWatchlist).catch(() => {}); // this chat's scenario counts
     } catch (e) {
       setError(`Could not open conversation: ${e.message}`);
       setActiveId(null);
@@ -170,7 +168,6 @@ export default function App() {
           m.map((msg) => (msg.id === pendingId ? { role: "assistant", answer: res.answer, at: Date.now() } : msg)),
         );
         refreshChats();
-        api.watchlist(null, res.conversation_id).then(setWatchlist).catch(() => {});
       } catch (e) {
         setError(e.message);
         setMessages((m) =>
@@ -231,27 +228,6 @@ export default function App() {
   };
 
   const active = chats.find((c) => c.id === activeId) || null;
-  const scenario = active?.scenario || null;
-  const scenarioLines = scenario
-    ? [
-        ...(scenario.unavailable || []).map((u) => `${u.crew_id} unavailable from ${u.from_date} (${u.reason})`),
-        ...(scenario.covers || []).map(
-          (c) => `${c.crew_id} covers ${c.pairing_id} as ${c.role} from ${c.from_date}${c.cost_inr ? ` · ₹${Math.round(c.cost_inr).toLocaleString("en-IN")}` : ""}`,
-        ),
-      ]
-    : [];
-
-  const resetScenario = async () => {
-    if (!activeId || !window.confirm("Discard this conversation's working scenario? Everyone declared unavailable becomes available again and applied covers are undone.")) return;
-    try {
-      await api.resetScenario(activeId);
-      refreshChats();
-      api.watchlist(null, activeId).then(setWatchlist).catch(() => {});
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
   return (
     <div className="app">
       <Header
@@ -312,19 +288,6 @@ export default function App() {
 
             <div ref={bottomRef} />
           </div>
-          {scenarioLines.length > 0 && (
-            <div className="scenario-bar" role="status">
-              <span className="scenario-tag">Scenario</span>
-              <ul>
-                {scenarioLines.map((line, i) => (
-                  <li key={i}>{line}</li>
-                ))}
-              </ul>
-              <button type="button" className="link small" onClick={resetScenario} title="Discard the working scenario">
-                reset
-              </button>
-            </div>
-          )}
           {error && <div className="error-bar">{error}</div>}
           <Composer value={draft} onChange={setDraft} onSubmit={(q) => ask(q)} disabled={busy} voice={voice} dev={dev} />
         </section>

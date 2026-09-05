@@ -46,11 +46,6 @@ export default function Watchlist({ watchlist, directory, onPick, compact = fals
       items: watchlist.high_risk,
       question: (i) => `${i.crew_id} has a high disruption-risk score — if they call in sick on ${watchlist.date}, which flights are exposed?`,
     },
-    {
-      title: "Uncovered in the active scenario",
-      items: watchlist.uncovered_flights,
-      question: (i) => `Who can cover ${i.flight_id || i.pairing_id} on ${i.date || watchlist.date}?`,
-    },
   ].filter((g) => g.items && g.items.length);
 
   return (

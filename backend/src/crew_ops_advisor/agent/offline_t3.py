@@ -21,6 +21,14 @@ from crew_ops_advisor.agent.offline_t2 import (
 from crew_ops_advisor.agent.types import ToolCall
 from crew_ops_advisor.data import Datastore
 
+# explicit intent only — "positioned to BLR" inside a legality question must not match
+POSITIONING_RE = re.compile(
+    r"\b(fly (?:someone|a \w+|\w+ in)|flown in|bring (?:someone|a \w+|\w+) in|"
+    r"from (?:another|other|a different) (?:airport|station|base)s?|"
+    r"other (?:airports|stations|bases)|who is arriving|arriving (?:at|in) \w+ who)\b",
+    re.I,
+)
+
 RECOMMEND_RE = re.compile(
     r"\b(what should|what do i do|recommend\w*|options?|resolve|resolution|cheapest|best way|"
     r"how (?:do|should) (?:i|we)|plan|handle)\b",
@@ -37,32 +45,13 @@ class T3Planner:
         low = text.lower()
         has = lambda *words: any(re.search(rf"\b{w}\b", low) for w in words)  # noqa: E731
 
-        # -- scenario workspace (ADR-0018 §3): explicit verbs only ------------------------
-        if has("reset") and has("scenario", "workspace", "start over"):
-            return "scenario_reset", (call("reset_scenario"),), compose_scenario_reset
-        if has("scenario", "workspace") and has(
-            "status", "changed", "committed", "vacant", "where are we"
-        ):
-            return "scenario_status", (call("scenario_status"),), compose_scenario_status
-        if (
-            has("record", "declare", "log")
-            and e.crew_id
-            and has("sick", "unavailable", "out", "no-show", "lapsed")
-        ):
-            args = {"crew_id": e.crew_id}
+        # -- positioning: fly someone in from another airport (ADR-0020) -------------------
+        if e.pairing_ids and POSITIONING_RE.search(low):
+            role = e.ranks[0] if e.ranks else "Captain"
+            args = {"pairing_id": e.pairing_ids[0], "role": role}
             if e.date:
                 args["from_date"] = e.date.isoformat()
-            args["reason"] = "certification" if has("lapsed", "certif\\w*") else "sick"
-            return "scenario_declare", (call("declare_unavailable", **args),), compose_declare
-        if has("apply", "assign", "commit") and len(e.crew_ids) >= 2 and e.pairing_ids:
-            args = {
-                "pairing_id": e.pairing_ids[0],
-                "crew_id": e.crew_ids[0],
-                "replacing": e.crew_ids[1],
-            }
-            if e.date:
-                args["from_date"] = e.date.isoformat()
-            return "scenario_apply", (call("apply_cover", **args),), compose_apply
+            return "positioning", (call("positioning_options", **args),), compose_positioning
 
         # -- notification drafting ----------------------------------------------------
         if (
@@ -318,104 +307,51 @@ def compose_briefing(r: Results) -> str:
     )
 
 
-# ---------------------------------------------------------------- scenario workspace
+# ---------------------------------------------------------------- positioning
 
 
-def compose_declare(r: Results) -> str:
-    if err := _err(r, "declare_unavailable"):
-        return _refused("declare_unavailable", err)
-    d = r["declare_unavailable"]
-    who, impact, sc = d["declared"], d["impact"], d["scenario"]
-    vac = sc["vacancies"]
-    lines = [
-        f"Recorded: {who['crew_id']} ({who['name']}, {who['rank']}) unavailable from "
-        f"{who['from_date']} ({who['reason']})."
-    ]
-    if impact.get("uncovered_now"):
-        lines.append("Uncovered now: " + ", ".join(impact["uncovered_now"]) + ".")
-    if vac:
-        lines.append(
-            "Vacant: "
-            + "; ".join(f"{v['role']} on {v['pairing_id']} {v['date']}" for v in vac)
-            + ". Ask for cover options, then apply one."
-        )
-    else:
-        lines.append("No pairing days are vacant.")
-    return (
-        "\n".join(lines)
-        + "\n\n"
-        + _reasoning(
-            "Sick-call impact assessment on the working scenario; the roster in this conversation "
-            "now treats them as unavailable.",
-            "Scenario: " + "; ".join(sc["summary"]),
-        )
+def compose_positioning(r: Results) -> str:
+    if err := _err(r, "positioning_options"):
+        return _refused("positioning_options", err)
+    p = r["positioning_options"]
+    head = (
+        f"{p['role']} for {p['pairing_id']} from {p['from_date']} at {p['station']}: report "
+        f"{p['scheduled_report_utc']}, first departure {p['first_departure_utc']}."
     )
-
-
-def compose_apply(r: Results) -> str:
-    if err := _err(r, "apply_cover"):
-        return _refused("apply_cover", err)
-    a = r["apply_cover"]
-    sc = a["scenario"]
-    if not a.get("applied"):
-        alts = a.get("legal_alternatives") or []
+    if not p["options"]:
         return (
-            f"Not applied — {a.get('reason', 'not a legal cover')}."
-            + (
-                " Legal alternatives: "
-                + ", ".join(f"{o['crew_id']} (₹{o['cost_inr']:,.0f})" for o in alts)
-                + "."
-                if alts
-                else ""
-            )
-            + "\n\n"
-            + _reasoning("Legality check on the working scenario refused the cover.")
+            head + f" Nobody can be flown in before the departure ({p['candidates_considered']} "
+            "candidates considered).\n\n"
+            + _reasoning("Positioning search over the roster and our network found no itinerary.")
         )
-    c, o = a["cover"], a["option"]
+    lines = []
+    for o in p["options"]:
+        it = o["itinerary"]
+        legs = (
+            " → ".join(
+                f"{leg['flight_no']} {leg['from']}-{leg['to']} {leg['dep_utc'][11:16]}-{leg['arr_utc'][11:16]}Z"
+                for leg in it["legs"]
+            )
+            if it
+            else "no positioning needed"
+        )
+        lines.append(
+            f"- {o['rank']}. {o['crew_id']} ({o['name']}) — {o['kind']} from {o['located_at']['station']}: "
+            f"{legs}; report {o['effective_report_utc'][11:16]}Z"
+            + (" on time" if o["on_time"] else " (late report, no delay)")
+            + (" · hotel overnight" if o["hotel_overnight"] else "")
+            + f" · ₹{o['cost_inr']:,.0f}"
+        )
     return (
-        f"Committed: {c['crew_id']} covers {c['pairing_id']} as {c['role']} from {c['from_date']} "
-        f"in place of {c['replaces']} — {o['kind'].replace('_', ' ')}, ₹{c['cost_inr']:,.0f}, "
-        f"{o['coverage']}. Vacancies left: {len(sc['vacancies'])}. "
-        f"Committed cost so far ₹{sc['committed_cost_inr']:,.0f}."
+        head
+        + f" {len(p['options'])} legal option(s), {p['on_time_count']} on time:\n"
+        + "\n".join(lines)
         + "\n\n"
         + _reasoning(
-            "Cover applied after the full check: " + ", ".join(o["rules_checked"]) + ".",
-            "Scenario: " + "; ".join(sc["summary"]),
+            "Positions from the roster (last released duty or duty in progress), itineraries on "
+            "our network landing before the departure, all seven rules checked, callout + "
+            "positioning + hotel costed.",
+            f"Excluded: {len(p['excluded'])} — "
+            + "; ".join(f"{x['crew_id']}: {x['reason'][:60]}" for x in p["excluded"][:4]),
         )
-    )
-
-
-def compose_scenario_status(r: Results) -> str:
-    if err := _err(r, "scenario_status"):
-        return _refused("scenario_status", err)
-    sc = r["scenario_status"]
-    if sc["empty"]:
-        return "No changes in this conversation's scenario.\n\n" + _reasoning(
-            "Scenario status: empty."
-        )
-    vac = sc["vacancies"]
-    return (
-        "Working scenario:\n"
-        + "\n".join(f"- {line}" for line in sc["summary"])
-        + (
-            "\nStill vacant: "
-            + "; ".join(f"{v['role']} on {v['pairing_id']} {v['date']}" for v in vac)
-            if vac
-            else "\nNothing vacant."
-        )
-        + f"\nCommitted cost so far ₹{sc['committed_cost_inr']:,.0f}."
-        + "\n\n"
-        + _reasoning("Scenario status from the desk's working scenario.")
-    )
-
-
-def compose_scenario_reset(r: Results) -> str:
-    if err := _err(r, "reset_scenario"):
-        return _refused("reset_scenario", err)
-    d = r["reset_scenario"]
-    return (
-        "Scenario reset — everyone is available again and applied covers are undone."
-        + (" Discarded: " + "; ".join(d["discarded"]) + "." if d["discarded"] else "")
-        + "\n\n"
-        + _reasoning("reset_scenario cleared the working scenario.")
     )

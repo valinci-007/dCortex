@@ -4,8 +4,7 @@ Deterministic, no model involved. For a date (tomorrow by default):
   - crew within a margin of RULE-DUTY-02 / RULE-FLT-03 once that day's rostered duty counts;
   - certifications lapsing within a few days, flagged when the crew member is rostered on
     or after the expiry date (a RULE-CERT-06 breach waiting to happen);
-  - the highest disruption-risk crew (a provided input, like a weather forecast);
-  - flights left uncovered by the active scenario, once one exists.
+  - the highest disruption-risk crew (a provided input, like a weather forecast).
 """
 
 from __future__ import annotations
@@ -34,7 +33,6 @@ def build_watchlist(
     flight_margin_h: float = FLIGHT_MARGIN_H,
     cert_days: int = CERT_DAYS,
     top_risk: int = TOP_RISK,
-    uncovered: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     duty_limit = float(store.ruleset.param(checks.DUTY, "max_duty_hours"))
     flight_limit = float(store.ruleset.param(checks.FLT, "max_flight_hours"))
@@ -118,8 +116,7 @@ def build_watchlist(
             }
         )
 
-    uncovered = list(uncovered or [])
-    total = len(limits) + len(certs) + len(risks) + len(uncovered)
+    total = len(limits) + len(certs) + len(risks)
     return {
         "date": on.isoformat(),
         "criteria": {
@@ -133,6 +130,5 @@ def build_watchlist(
         "near_limits": limits,
         "expiring_certifications": certs,
         "high_risk": risks,
-        "uncovered_flights": uncovered,
         "rules": ["RULE-DUTY-02", "RULE-FLT-03", "RULE-CERT-06"],
     }

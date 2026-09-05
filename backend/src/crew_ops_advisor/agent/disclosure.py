@@ -51,6 +51,7 @@ TOOL_SOURCES: dict[str, str] = {
     "draft_callout_notification": "the callout draft",
     "morning_briefing": "the morning briefing",
     "watchlist": "the watchlist",
+    "positioning_options": "the positioning options",
 }
 
 FILE_SOURCES: dict[str, str] = {

@@ -50,14 +50,7 @@ export const api = {
   },
   health: () => request("/api/health"),
   directory: () => request("/api/directory"),
-  watchlist: (date, chatId) => {
-    const q = new URLSearchParams();
-    if (date) q.set("date", date);
-    if (chatId) q.set("chat_id", chatId);
-    const qs = q.toString();
-    return request(`/api/watchlist${qs ? `?${qs}` : ""}`);
-  },
-  resetScenario: (chatId) => request(`/api/chats/${chatId}/scenario/reset`, { method: "POST" }),
+  watchlist: (date) => request(`/api/watchlist${date ? `?date=${encodeURIComponent(date)}` : ""}`),
   context: () => request("/api/context"),
   tools: () => request("/api/tools"),
   chats: () => request("/api/chats"),

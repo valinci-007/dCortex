@@ -88,25 +88,22 @@ Not tried: streaming partial answers to the UI, capping tool result size for Tie
 - Cabin-crew complements are assumed per aircraft type (A320: 1/1/1/3, ATR72: 1/1/1/1) from
   the roster; a real carrier's minimums vary by configuration.
 
-## 8. The scenario model is deliberately shallow (limitation)
+## 8. Chained what-ifs rely on the conversation, not on state (design choice)
 
-**What it does.** A conversation's scenario records crew declared unavailable and covers
-applied; the tools read the roster through an overlay, so chained questions ("now the
-cover is sick too") are answered against the updated roster, and a cover is committed only
-after the seven-rule check passes (ADR-0018 §3).
+**What it does.** The assistant is read-only over crew data (ADR-0021): every simulation
+computes a hypothetical from the roster as it stands and returns it. A what-if is stated in
+the question — "if C-2210 is also out" becomes an excluded candidate in the ranking, "both
+captains sick" becomes a joint-plan event list.
 
-**Where it stops.** Delays and station closures are assessed within one question but do
-not persist as scenario state, so "DX412 is delayed two hours *and* C-1042 is sick" is two
-questions whose second answer does not know about the first delay. A pairing's crew list
-reads as the roster after all edits, while per-day membership is exact only through duty
-periods — a mid-pairing handover shows the new member for the whole pairing in a plain
-"who is on P-2291" answer. Partial covers of a multi-day pairing remain under-modelled
-(case 2). We chose the shallow model because it is the one we could make byte-for-byte
-identical to the baseline when empty, which the suite and the evals pin.
+**Where it stops.** A chain across turns ("C-1042 is sick" … "now C-3310 is sick too")
+depends on the model carrying the earlier condition into the next lookup's parameters. It
+usually does, and the answer names the assumptions it used, but nothing pins the earlier
+condition to the roster, so a later question that forgets it will be answered against the
+unchanged roster. We chose this over a mutable scenario because the desk's systems of record
+are where changes belong; the advisor advises.
 
-**How we know.** `tests/integration/test_scenario.py` drives the sick-call → cover →
-cover-sick chain and the pass-through property; the eval reports were re-run with the
-scenario-aware registry (`evals/reports/tier123-agent-sdk-v3.*`).
+**How we know.** `tests/integration/test_positioning.py` drives the what-if through
+parameters; the earlier scenario-workspace tests were removed with the feature.
 
 ## 9. One SQLite connection shared across request threads (fixed)
 
@@ -125,3 +122,13 @@ its own connection lazily (the built database is read-only, so nothing needs coo
 the chat store, which writes, serialises every operation on a lock. A test fires 40
 concurrent requests across five endpoints and asserts every one returns 200 — it fails on
 the old code and passes on the fix.
+
+## 10. Positioning knows our network, not the world (limitation)
+
+Positioning cover (ADR-0020) finds crew elsewhere and itineraries on **our own** flights —
+direct, one hub connection, or the evening before with a hotel. It does not consider partner
+carriers, charters or ground transport, never delays a departure to wait for someone (by the
+desk's own rule), and tries a duty extension only when the crew member's current duty ends at
+the station. A held-out scenario at a spoke station with no inbound flight before the
+departure will get "nobody can be flown in" plus the reasoned exclusions — which is the honest
+answer on this dataset, not a proof that no option exists in the real world.

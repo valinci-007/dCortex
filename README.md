@@ -94,23 +94,20 @@ reasoning plus every excluded candidate with its reason; joint plans when severa
 out (no one assigned twice, cheapest total); delay recovery (fly the legal prefix, re-crew
 the tail with a reserve set, or cancel); callout notification drafts; a morning briefing.
 
-**Scenario workspace — chained disruptions and "make the call" (ADR-0018).** Each
-conversation keeps the desk's working situation. "C-1042 called in sick from tomorrow —
-record it" declares him unavailable and returns the impact; "what should I do?" ranks the
-covers; "go with option 1" commits the callout — after the full seven-rule check, and only
-if it is legal; "who is still on reserve?" now answers without the crew member just called
-out; "now C-3310 is sick too" reopens the vacancy with neither man offered. The scenario is
-shown above the composer, persists with the chat, and can be reset. Persistent delays and
-station closures are not scenario state yet (delay recovery works within one question).
+**What-ifs are questions, not changes (ADR-0021).** The assistant never edits crew data —
+it reads, interprets and evaluates. "If C-1042 is sick from tomorrow, which flights are
+uncrewed?", "if C-2210 is also out, who covers P-2291's DEL day?", "both A320 captains sick
+on 18 Sep — joint plan?" are all answered statelessly from the roster as it stands; the
+controller decides and acts in the desk's own systems.
 
 **Proactive watchlist.** Before anyone asks: crew within 10 h of the 7-day duty limit or
 10 h of the 28-day block limit tomorrow, certifications lapsing within a week — flagged when
-a duty is rostered after the expiry — the highest disruption-risk crew, and any pairing
-days left vacant by the active scenario. Deterministic, no model call; on the home screen,
+a duty is rostered after the expiry — and the highest disruption-risk crew. Deterministic,
+no model call; on the home screen,
 in the header, and as a `watchlist` tool the model can consult.
 
 **Two views (ADR-0019).** By default the UI is the controller's: the answer, its Reasoning,
-one trust signal, the scenario strip, the watchlist, conversations, voice — no provider,
+one trust signal, the watchlist, conversations, voice — no provider,
 cost, tool or trace vocabulary anywhere. The **dev** toggle in the header (or `?dev=1`)
 adds what we and the judges want: the reasoning trail with tool arguments and results,
 timings, cost, provider and PII badges, grounding counts, and the sample-question drawer.
@@ -144,7 +141,7 @@ controller ──► orchestrator ──► language model (plans, narrates)    
                    │   ▲
                    │   │  typed tool calls / JSON results  ◄── the only crossing
                    ▼   │
-             tool registry (38 tools, JSON-schema validated)              ◄── deterministic
+             tool registry (35 tools, JSON-schema validated)              ◄── deterministic
              ├─ query tools (T1)          ─► SQLite data layer (built from data/*.json)
              ├─ simulation tools (T2)     ─► rules engine: 7 rules as pure functions → evidence
              └─ recommendation tools (T3) ─► candidates × legality × cost model, ranked
@@ -320,4 +317,14 @@ frontend/                      React (Vite) chat UI — conversations sidebar, r
 Branch per person/feature (`<your-name>/<feature>`), `make test` and `make lint` green, PR
 to `main`. Decisions go in `docs/decisions.md` — including what was skipped and why.
 
-Team: Rajesh (@valinci-007) · @SyedMaaz786
+Team: Rajesh (@valinci-007) · @SyedMaaz786 · @UmaShankar(uma-shankar-21)
+
+## Submission deck
+
+`docs/deck.md` is the narrative (Marp) with the running order in its comments;
+`docs/build_deck.py` renders it as `docs/deck.pptx` for upload, reading the results slide's
+numbers from the latest `backend/evals/reports/tier123-agent-sdk-v*.json`:
+
+```bash
+backend/.venv/bin/pip install python-pptx && backend/.venv/bin/python docs/build_deck.py
+```

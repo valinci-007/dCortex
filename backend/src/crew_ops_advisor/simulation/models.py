@@ -145,7 +145,10 @@ class ClosureImpact:
             "per_flight": [a.to_dict() for a in self.assessments],
             "note": (
                 f"minimum delay = reopen time + {self.turnaround_minutes} min turnaround − "
-                "scheduled time at the station; FDP after delay = rostered duty length + that delay"
+                "scheduled time at the station; FDP after delay = rostered duty length + that "
+                "delay. per_flight is the operational detail — each leg's minimum delay and the "
+                "crew's FDP after it — and belongs in any recovery plan; per_pairing is totals "
+                "only."
             ),
         }
 

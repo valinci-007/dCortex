@@ -23,8 +23,10 @@ Every significant decision gets an entry: context → options considered → dec
 | [ADR-0015](#adr-0015) | Separate `backend/` and `frontend/` projects; persistent conversations without a user model | **Accepted** | 2026-09-04 |
 | [ADR-0016](#adr-0016) | Voice interface with configurable speech providers (local Whisper now, Sarvam AI at the event, browser fallback) | **Accepted** | 2026-09-04 |
 | [ADR-0017](#adr-0017) | PII minimisation at the tool boundary (`CREW_OPS_PII_MODE=minimal`) with a console audit trail of everything sent to the model | **Accepted** | 2026-09-05 |
-| [ADR-0018](#adr-0018) | Tier 3 completion: streamed progress, proactive watchlist, scenario workspace (chained disruptions, "make the call"), graded confidence | **Accepted** | 2026-09-05 |
+| [ADR-0018](#adr-0018) | Tier 3 completion: streamed progress, proactive watchlist, scenario workspace, graded confidence | **Accepted** (§3 superseded by ADR-0021) | 2026-09-05 |
 | [ADR-0019](#adr-0019) | Controller view by default; developer view (traces, timings, cost, provider/PII badges, sample questions) behind a toggle | **Accepted** | 2026-09-05 |
+| [ADR-0020](#adr-0020) | Positioning cover: when nobody at the station can take a duty on time, who elsewhere can be flown in before the departure — roster positions, any itinerary, seven rules, automatic escalation | **Accepted** | 2026-09-05 |
+| [ADR-0021](#adr-0021) | The advisor is read-only: it reads, interprets and evaluates, never changes crew data — the scenario workspace is removed; what-ifs are stated in the question | **Accepted** | 2026-09-05 |
 
 ---
 
@@ -520,6 +522,30 @@ vacancy reopens with neither offered. First visible activity at ~4 s on Tier-3 q
 
 ---
 
+### ADR-0011 addendum — the eval as a diagnostic loop (2026-09-05)
+The eval report now keeps, per question, the grounding verdict, the confidence label and a
+compact trace (every tool step and every correction turn with its reason). Mining the first
+report that had them showed that every correction turn in the 38-question run came from
+figures the model *derived* or from figures our own checks misread — never from a wrong
+lookup. Each finding was fixed at its source rather than by tuning the model to the grader:
+
+| Finding | Where fixed |
+|---|---|
+| ₹2,50,000 (lakh grouping) read as "50000", flagged as invented | grounding normaliser and grader understand 2-digit grouping |
+| `DX422/423/424` split into unknown numbers by the grounding check | rotation notation read as flight ids |
+| `2026-09-18T00:30Z` echoed from "00:30Z on 18 Sep" in the question, not found | the question's dates and times are added to the corpus in ISO forms |
+| 972 = 6 legs × 162 seats summed by the model | closure result carries per-pairing totals; prompt rule 2: quote totals, never compute |
+| a rewrite dropped a legitimate 3.75 h along with the flagged figures | rewrite instruction changed to "change only what is named; keep every other figure exactly" |
+| a plan summarised per pairing and lost each leg's minimum delay | closure result's note says per_flight is the operational detail |
+
+Reports: `tier123-agent-sdk-v3` (before) → `-v4` → `-v5` → `-v6` (after): Tier 3 3/8 → 5/8 →
+6/8 → 7/8, correction turns 4 → 3 → 0 → 0, every answer verified on the first pass in v5 and
+v6; the remaining miss is Q33. The prompt changed by two sentences (quote totals, never
+compute them; list every ranked option — the brief's own Tier-3 shape); the rest was tool
+results, the grounding check and the grader.
+
+---
+
 ## ADR-0019 — Controller view by default, developer view behind a toggle
 **Status: Accepted** (Rajesh raised it, 2026-09-05)
 
@@ -534,8 +560,8 @@ voice. Cost, latency, tool counts, traces and sample questions are ours and the 
 
 **Decision.** Two views over one UI. **Controller view (default):** the answer, its
 Reasoning, one trust signal (verified · verified after correction · unverified figures ·
-declined, plus an offline-mode warning when the router answered), the scenario strip, the
-watchlist, conversations, voice; the header shows the data time as "data as of …". Nothing
+declined, plus an offline-mode warning when the router answered), the watchlist,
+conversations, voice; the header shows the data time as "data as of …". Nothing
 names a provider, a model, a cost or a tool. **Developer view** (`dev` toggle in the
 header, `?dev=1`, remembered per browser): everything above plus provider and PII badges,
 grounding counts, seconds, cost, tool-call counts, the reasoning trail with tool arguments
@@ -545,6 +571,80 @@ drawer. A production deployment would put the developer view behind a supervisor
 **Consequences.** The demo flips the toggle to show the audit view; the controller never
 sees it. The refusal text and the confidence badge are the only trust cues in the default
 view, which is deliberate — a desk under pressure needs one signal, not six.
+
+---
+
+## ADR-0020 — Positioning cover: fly someone in when nobody local can take it on time
+**Status: Accepted** (Rajesh's scenario, 2026-09-05)
+
+**Context.** A captain is sick, and no one at the station can legally take the duty — no
+reserve fits, every candidate breaches a rule. The desk's next move is to look at other
+airports: who is there, or arriving there, who could be flown in before the departure? The
+engine knew only a narrow case — a crew member *based* elsewhere, on a *direct* flight from
+that base on the duty date, with the departure delayed to wait for them — and never asked
+where anyone actually was.
+
+**Decisions (Rajesh's answers).** Candidates are read from the **roster**: the end station
+of the last released duty or the duty in progress (a BLR captain overnighting in DEL is in
+DEL), base only when nothing is rostered; crew landing at the station on their current trip
+count. **On time only**: nothing here delays a departure; an itinerary must land 15 min
+before the first departure — arriving before the scheduled report is "on time", between
+report and departure is a late report with no delay, shown after the on-time options.
+**Any itinerary** on our own network: direct, one connection via the hub (30 min minimum),
+or an earlier flight with a hotel overnight (₹4,200 from the cost table). **Automatic
+escalation**: a cover ranking that finds no legal option keeping the departure on time
+attaches the positioning options as `escalation`; the same search is a tool on request.
+
+**Mechanics.** `simulation/positioning.py`. Every option passes the seven rules with the
+crew member's full timeline; a crew member landing at the station with too little rest for a
+fresh duty is also tried as a **duty extension** — the covered legs join the same flight
+duty period, RULE-FDP-01 decides with the extra sectors. A reserve's on-call window must
+cover the moment they would be called out — the positioning departure. Positioning legs are
+not flying duty and do not shorten rest, consistent with the answer keys' deadhead
+treatment. Costs: callout + positioning legs × the deadhead rate + hotel. The main ranking
+is unchanged (its delayed direct deadhead is what the keys expect) and gains an advisory
+note when the roster puts a candidate away from base at report time.
+
+**First real case.** P-2291's second day starts in DEL at 05:00Z. The old ranking offered
+only the DEL-based captain or a same-morning deadhead with a 1.5 h delay (₹33,100). With
+the DEL captain sick, the escalation finds five BLR captains who can take DX588 the evening
+before with a hotel — on time, ₹29,200 for a reserve — cheaper than the delayed deadhead
+the ranking would have recommended. Pinned in `tests/integration/test_positioning.py`.
+
+**Limits.** Our own network only (no partner carriers, no ground transport); no delayed
+positioning by design; the extension case applies only when the current duty ends at the
+station; connections through one hub only.
+
+---
+
+## ADR-0021 — Read-only by principle: no tool changes crew data
+**Status: Accepted** (team decision, Rajesh, 2026-09-05) — supersedes ADR-0018 §3
+
+**Context.** The scenario workspace (ADR-0018 §3) let the assistant record a sick call and
+commit a cover on a per-conversation overlay so later questions saw an updated roster. It
+never wrote to the operational database, but it made the assistant a thing that *changes
+availability and rosters*, and the desk's own systems of record are where those changes
+belong. The controller decides and acts there; the advisor's job is to read, interpret and
+evaluate.
+
+**Decision.** The assistant is read-only over crew data. Removed: `declare_unavailable`,
+`apply_cover`, `scenario_status`, `reset_scenario`, the scenario overlay, its persistence on
+the chat record, the scenario strip and reset in the UI, the offline-router verbs, and the
+prompt rule that governed them. Kept, because they mutate nothing: every simulation and
+ranking (they compute a hypothetical and return it), positioning cover (ADR-0020), the
+watchlist, persistent conversations (the assistant's own record, not crew data).
+
+**How what-ifs work now.** They are stated in the question and answered statelessly:
+"if C-1042 is sick from tomorrow, which flights are uncrewed?", "if C-2210 is also out, who
+covers P-2291's DEL day?" (the ranking takes the excluded crew as a parameter), "both A320
+captains sick on 18 Sep — joint plan?". A follow-up in the same conversation can build on
+the previous answer's facts through the model's session memory, but nothing is recorded
+against the roster.
+
+**Consequences.** Chained disruptions across turns are answered from the conversation, not
+from a mutable roster — the model must carry the earlier condition into the next lookup's
+parameters, and the answer says which assumptions it used. The tool count is 35; the eval
+baselines are unaffected (no key exercised the scenario tools).
 
 ---
 

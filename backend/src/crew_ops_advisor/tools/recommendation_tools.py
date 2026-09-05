@@ -39,6 +39,14 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
                 "reported_utc": _str_prop(
                     "When it was reported, e.g. 2026-09-15T05:00:00Z (optional)"
                 ),
+                "also_unavailable": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "What-if: other crew ids also out (sick, unavailable) in this scenario, "
+                        'e.g. ["C-2210"] — excluded as candidates by the engine'
+                    ),
+                },
                 "max_options": {
                     "type": "integer",
                     "description": "Cap on ranked options returned (default 8)",
@@ -54,6 +62,7 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
         pairing_id: str | None = None,
         from_date: str | None = None,
         reported_utc: str | None = None,
+        also_unavailable: list[str] | None = None,
         max_options: int = 8,
     ) -> dict[str, Any]:
         try:
@@ -63,6 +72,7 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
                 pairing_id=pairing_id,
                 from_date=_date(from_date, "from_date"),
                 reported_utc=_utc(reported_utc, "reported_utc"),
+                exclude_crew=tuple(c.upper() for c in (also_unavailable or [])),
                 max_options=max(1, int(max_options)),
             )
         except SimulationError as exc:
@@ -79,6 +89,14 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
                 "pairing_id": _str_prop("Pairing id"),
                 "role": _str_prop("Role to fill", enum=list(RANKS)),
                 "from_date": _str_prop("First duty day YYYY-MM-DD (default: pairing start)"),
+                "also_unavailable": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "What-if: other crew ids also out (sick, unavailable) in this scenario, "
+                        'e.g. ["C-2210"] — excluded as candidates by the engine'
+                    ),
+                },
                 "max_options": {
                     "type": "integer",
                     "description": "Cap on ranked options (default 8)",
@@ -93,6 +111,7 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
         pairing_id: str,
         role: str,
         from_date: str | None = None,
+        also_unavailable: list[str] | None = None,
         max_options: int = 8,
     ) -> dict[str, Any]:
         try:
@@ -101,6 +120,7 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
                 pairing_id,
                 role,
                 from_date=_date(from_date, "from_date"),
+                exclude_crew=tuple(c.upper() for c in (also_unavailable or [])),
                 max_options=max(1, int(max_options)),
             ).to_dict()
         except SimulationError as exc:
@@ -241,8 +261,8 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
         "Proactive watchlist for a date (default tomorrow): crew within a margin of the 7-day "
         "duty limit (RULE-DUTY-02) or the 28-day block limit (RULE-FLT-03) once that day's "
         "rostered duty counts, certifications lapsing within a few days flagged when the crew "
-        "member is rostered after the expiry (RULE-CERT-06), the highest disruption-risk crew, "
-        "and any flights left uncovered by the active scenario. Use for 'anything I should "
+        "member is rostered after the expiry (RULE-CERT-06), and the highest disruption-risk crew. "
+        "Use for 'anything I should "
         "worry about tomorrow?', 'who is close to a limit?', 'what needs attention?'.",
         {
             "type": "object",
@@ -276,15 +296,61 @@ def register_recommendation_tools(registry: ToolRegistry) -> None:
             kwargs["duty_margin_h"] = float(duty_headroom_hours)
         if certification_days is not None:
             kwargs["cert_days"] = int(certification_days)
-        scenario = getattr(store, "scenario", None)  # vacant pairing days in this conversation
-        if scenario is not None and not scenario.empty:
-            kwargs["uncovered"] = [
-                {
-                    **v,
-                    "severity": "breach",
-                    "note": f"{v['role']} slot on {v['pairing_id']} ({', '.join(v['flight_ids'])}) "
-                    f"vacant — {v['crew_id']} unavailable, no cover applied",
-                }
-                for v in scenario.vacancies(store)
-            ]
         return build_watchlist(store, on, **kwargs)
+
+    @registry.tool(
+        "positioning_options",
+        "When nobody at the station can legally take a duty: who elsewhere can be flown in "
+        "before the departure we are covering? Reads where every qualified crew member is at "
+        "report time from the roster (including those landing at the station on their current "
+        "trip), finds itineraries on our network — direct, one connection via the hub, or an "
+        "earlier flight with a hotel overnight — that land before the departure, checks all "
+        "seven rules (a crew member landing there may also continue on the same duty), and "
+        "costs callout + positioning + hotel. On-time options (before the scheduled report) "
+        "rank first, then late-report options that avoid a delay. Use for 'can we fly someone "
+        "in', 'anyone at another airport', 'who is arriving at BLR who could take it'. "
+        "rank_cover_options attaches this automatically as `escalation` when it finds no "
+        "legal cover at the station.",
+        {
+            "type": "object",
+            "properties": {
+                "pairing_id": _str_prop("Pairing id, e.g. P-2291"),
+                "role": _str_prop("Captain | First Officer | Senior Cabin Crew | Cabin Crew"),
+                "from_date": _str_prop("First day to cover, YYYY-MM-DD (default: pairing start)"),
+                "also_unavailable": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "What-if: other crew ids also out (sick, unavailable) in this scenario, "
+                        'e.g. ["C-2210"] — excluded as candidates by the engine'
+                    ),
+                },
+                "max_options": {"type": "integer", "description": "Cap on options returned"},
+            },
+            "required": ["pairing_id", "role"],
+        },
+        tier=TIER,
+    )
+    def positioning_options_tool(
+        store: Datastore,
+        pairing_id: str,
+        role: str,
+        from_date: str | None = None,
+        also_unavailable: list[str] | None = None,
+        max_options: int | None = None,
+    ) -> dict[str, Any]:
+        from crew_ops_advisor.simulation.positioning import positioning_cover
+
+        if role not in RANKS:
+            raise ToolError(f"unknown role {role!r} (use one of {', '.join(RANKS)})")
+        try:
+            return positioning_cover(
+                store,
+                pairing_id,
+                role,
+                from_date=_date(from_date, "from_date") if from_date else None,
+                exclude_crew=tuple(c.upper() for c in (also_unavailable or [])),
+                max_options=max_options,
+            ).to_dict()
+        except SimulationError as exc:
+            raise ToolError(str(exc)) from exc

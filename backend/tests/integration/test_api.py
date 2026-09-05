@@ -2,7 +2,6 @@
 
 import dataclasses
 import json
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -36,7 +35,7 @@ def test_health_and_context(client):
 
 def test_tools_catalogue(client):
     tools = client.get("/api/tools").json()
-    assert {t["tier"] for t in tools} == {1, 2, 3} and len(tools) == 38
+    assert {t["tier"] for t in tools} == {1, 2, 3} and len(tools) == 35
     assert any(t["name"] == "recommend_cover" and "crew_id" in t["parameters"] for t in tools)
 
 
@@ -202,36 +201,6 @@ def test_watchlist_endpoint(db_path, tmp_path):
     assert w["date"] == "2026-09-15" and w["count"] >= 1
     assert c.get("/api/watchlist?date=2026-09-18").json()["date"] == "2026-09-18"
     assert c.get("/api/watchlist?date=nonsense").status_code == 400
-
-
-def test_scenario_persists_with_the_chat_and_can_be_reset(db_path, tmp_path):
-    from crew_ops_advisor.chats.store import ChatStore
-    from crew_ops_advisor.simulation.scenario import Scenario
-
-    chats_db = tmp_path / "c.db"
-    settings = dataclasses.replace(
-        Settings.from_env(), db_path=db_path, chats_db_path=chats_db, llm_provider="offline"
-    )
-    c = TestClient(create_app(settings))
-    chat_id = c.post("/api/chats", json={"title": "desk"}).json()["id"]
-    # a scenario saved on the chat (as the ask path does after every answer) is rehydrated
-    scenario = Scenario()
-    scenario.declare_unavailable("C-1042", date(2026, 9, 15), "sick")
-    ChatStore(chats_db).set_scenario(chat_id, scenario.to_dict())
-    assert (
-        c.get(f"/api/chats/{chat_id}").json()["chat"]["scenario"]["unavailable"][0]["crew_id"]
-        == "C-1042"
-    )
-    fresh = TestClient(create_app(settings))  # new process: conversation rebuilt from the row
-    w = fresh.get(f"/api/watchlist?chat_id={chat_id}").json()
-    assert [u["pairing_id"] for u in w["uncovered_flights"]] == ["P-2291", "P-2291"]
-    assert fresh.get("/api/watchlist").json()["uncovered_flights"] == []  # no chat: no scenario
-    assert fresh.post(f"/api/chats/{chat_id}/scenario/reset").json()["discarded"] == [
-        "C-1042 unavailable from 2026-09-15 (sick)"
-    ]
-    assert fresh.get(f"/api/chats/{chat_id}").json()["chat"]["scenario"] is None
-    assert fresh.get(f"/api/watchlist?chat_id={chat_id}").json()["uncovered_flights"] == []
-    assert fresh.post("/api/chats/nope/scenario/reset").status_code == 404
 
 
 def test_concurrent_requests_do_not_corrupt_reads(db_path, tmp_path):
