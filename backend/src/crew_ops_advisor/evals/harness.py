@@ -32,7 +32,7 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     "captain": ("capt", "cpt"),
 }
 _STOPWORDS = frozenset(
-    {"the", "a", "an", "of", "over", "in", "on", "for", "to", "and", "this", "last"}
+    {"the", "a", "an", "of", "over", "in", "on", "for", "to", "and", "this", "last", "with"}
 )
 
 # Structured key strings ("RULE-DUTY-02: would exceed 60h/7d by 1h20m on 2026-09-15 (total 61.33h)")
@@ -258,9 +258,13 @@ def _squashed_present(text: str, token: str) -> bool:
     return squash(token) in squash(text)
 
 
+_ROTATION_RE = re.compile(r"\bDX(\d{3})((?:/\d{3})+)\b")
+
+
 def normalise_text(text: str, *, year: int = 2026) -> str:
-    """Answer text as the grader sees it: thousands separators removed (250,000 -> 250000) and
-    textual dates ("17 Sep", "Sep 17") echoed in ISO form so date facts can be matched."""
+    """Answer text as the grader sees it: thousands separators removed (250,000 -> 250000),
+    textual dates ("17 Sep", "Sep 17") echoed in ISO form, and rotations written the way a
+    controller writes them ("DX402/403/404") echoed as the individual flight ids."""
     out = re.sub(r"(?<=\d),(?=\d{3}\b)", "", text)
     extra: list[str] = []
     for m in _TEXT_DATE_RE.finditer(out):
@@ -269,6 +273,8 @@ def normalise_text(text: str, *, year: int = 2026) -> str:
             extra.append(f"{year:04d}-{_MONTHS[mon[:3].lower()]:02d}-{int(day):02d}")
         except (KeyError, ValueError):
             continue
+    for m in _ROTATION_RE.finditer(out):
+        extra.extend(f"DX{n}" for n in m[2].strip("/").split("/"))
     return out + ("\n" + " ".join(extra) if extra else "")
 
 
@@ -305,9 +311,21 @@ def _rule_present(text: str, rule_id: str) -> bool:
     return bool(re.search(r"\ball (?:seven|7) rules\b", low))
 
 
+# Controller vocabulary that names the same thing as the answer keys' template wording.
+_WORD_SYNONYMS: dict[str, frozenset[str]] = {
+    "flights": frozenset({"legs", "leg", "sectors", "sector"}),
+    "flight": frozenset({"leg", "sector"}),
+    "deadline": frozenset({"due", "by"}),
+    "request": frozenset({"reply", "confirm", "acknowledge"}),
+    "questions": frozenset({"queries", "query", "contact"}),
+    "availability": frozenset({"available", "eligible"}),
+}
+
+
 def _word_match(word: str, have: set[str]) -> bool:
-    """Inflection-tolerant: 'tail' ~ 'tails', 'cancel' ~ 'cancelled', 'reserves' ~ 'reserve'."""
-    if word in have:
+    """Inflection-tolerant: 'tail' ~ 'tails', 'cancel' ~ 'cancelled', 'reserves' ~ 'reserve';
+    plus the controller's words for the keys' template wording ('legs' for 'flights')."""
+    if word in have or (_WORD_SYNONYMS.get(word, frozenset()) & have):
         return True
     if len(word) < 4:
         return False
@@ -359,7 +377,7 @@ def _present(text: str, token: str) -> bool:
     # multi-word prose (risk drivers, action sentences): content words must appear — all of
     # them for short phrases, at least 70% for long template sentences that get paraphrased
     content = [w for w in _words(token) if w not in _STOPWORDS]
-    if len(content) >= 3:
+    if len(content) >= 2:
         have = set(_words(text))
         hits = sum(1 for w in content if _word_match(w, have))
         needed = len(content) if len(content) <= 5 else int(0.7 * len(content) + 0.999)

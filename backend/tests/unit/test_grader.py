@@ -127,3 +127,19 @@ def test_confidence_labels_follow_grounding_and_correction():
     assert confidence_label(answer(), bad, corrected=True) == "unverified"
     assert confidence_label(answer(refused=True), None, corrected=False) == "declined"
     assert confidence_label(answer(error="boom"), None, corrected=False) == "error"
+
+
+def test_rotations_and_controller_vocabulary():
+    # "DX402/403/404" names three flights; "legs" is how the desk says "flights"
+    assert grade(
+        "P-2204 (DX402/403/404) worst hit", {"flights": ["DX402", "DX403", "DX404"]}
+    ).passed
+    assert not grade("P-2204 (DX402/403) hit", {"flights": ["DX404"]}).passed
+    assert grade(
+        "P-2291: cancel all 6 legs of the pairing — last resort",
+        {"action": "Cancel all 6 flights of the pairing"},
+    ).passed
+    assert grade(
+        "Acknowledgement: reply ACK P-2291 by 18:30Z. Contact: Crew Control desk.",
+        {"notes": ["acknowledgement request with deadline", "contact for questions"]},
+    ).passed

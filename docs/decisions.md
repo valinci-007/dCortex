@@ -508,6 +508,15 @@ evidence objects; this only surfaces them.
 for the overlay and the watchlist; an orchestrator test for a chained conversation; a
 chained scenario recorded in `docs/failure-cases.md` if anything is under-modelled.
 
+**Evidence (2026-09-05).** 233 tests. `tier123-agent-sdk-v3`: Tier 1 16/16, Tier 2 14/14,
+Tier 3 7/8 (Q33, the documented divergence) after two grader tolerances the run exposed —
+rotations written "DX402/403/404" and "legs" for "flights"; p50 9.2 s, p95 17.4 s. The gate
+also caught a real defect: the grounding-correction path for the loop provider had not
+been updated for streaming — fixed, with the test that was missing. Live chained
+conversation: sick call → ranked options → "go with option 1" committed after the
+seven-rule check → reserve list without the man called out → the cover goes sick and the
+vacancy reopens with neither offered. First visible activity at ~4 s on Tier-3 questions.
+
 ---
 
 ## Considered & skipped (with reasons)

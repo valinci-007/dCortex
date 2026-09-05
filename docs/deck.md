@@ -116,13 +116,14 @@ answering the same chain with the network pulled, voice input, persistent chats.
 |---|---|---|---|
 | Tier 1 (16 Q) | **16/16** | 16/16 | 7.0 s · < 1 ms |
 | Tier 2 (14 Q) | **14/14** | 14/14 | 9.7 s · 1 ms |
-| Tier 3 (8 Q) | 4–7/8 automated · **8/8 on human review** | 7/8 | 14 s · 6 ms |
+| Tier 3 (8 Q) | 7/8 automated (latest) · **8/8 on human review** | 7/8 | 14 s · 6 ms |
 
 - Offline router, all 38 questions, re-run today: **37/38** — the one miss is the answer
   key we disagree with (Q33, below).
-- A combined T1+T2 re-run after a prompt change graded 28/30 (`tier12-agent-sdk-v2`);
-  both misses were wording — an enum spelling and a timestamp form — and the grader now
-  tolerates both. We report every run, including that one.
+- Full three-tier re-run after the scenario workspace landed (`tier123-agent-sdk-v3`):
+  **16/16 · 14/14 · 7/8** — the one miss is the answer key we disagree with (Q33). It first
+  graded 3/8 on Tier 3: the model wrote rotations as "DX402/403/404" and said "legs" for
+  "flights"; the grader now reads controller notation. We report every run, including that one.
 - Scenarios S1, S2, S4, S6 reproduced **exactly** (options, costs, exclusions, reasons).
 - The whole roster evaluates legal except the one flagged exception — parity with the
   organiser's validator.
