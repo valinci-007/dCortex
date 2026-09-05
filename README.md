@@ -109,6 +109,12 @@ a duty is rostered after the expiry — the highest disruption-risk crew, and an
 days left vacant by the active scenario. Deterministic, no model call; on the home screen,
 in the header, and as a `watchlist` tool the model can consult.
 
+**Two views (ADR-0019).** By default the UI is the controller's: the answer, its Reasoning,
+one trust signal, the scenario strip, the watchlist, conversations, voice — no provider,
+cost, tool or trace vocabulary anywhere. The **dev** toggle in the header (or `?dev=1`)
+adds what we and the judges want: the reasoning trail with tool arguments and results,
+timings, cost, provider and PII badges, grounding counts, and the sample-question drawer.
+
 **Always.** A visible "Reasoning" section, a machine-readable trace of every tool call with
 arguments, results and timings, a grounding check that every id, date and figure in the
 answer came from tool evidence, and an honest refusal ("I can't answer that reliably")

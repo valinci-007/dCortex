@@ -25,7 +25,7 @@ function Item({ item, directory, onPick, question }) {
   );
 }
 
-export default function Watchlist({ watchlist, directory, onPick, compact = false }) {
+export default function Watchlist({ watchlist, directory, onPick, compact = false, dev = false }) {
   if (!watchlist) return null;
   const groups = [
     {
@@ -57,7 +57,10 @@ export default function Watchlist({ watchlist, directory, onPick, compact = fals
     <section className={`watchlist ${compact ? "compact" : ""}`} aria-label="Watchlist">
       <div className="watch-head">
         <span className="rail-title">Watchlist · {watchlist.date}</span>
-        <span className="muted small">{watchlist.count} item{watchlist.count === 1 ? "" : "s"} · from the rules and the roster, no model involved</span>
+        <span className="muted small">
+          {watchlist.count} item{watchlist.count === 1 ? "" : "s"}
+          {dev ? " · from the rules and the roster, no model involved" : ""}
+        </span>
       </div>
       {groups.length === 0 && <p className="muted small">Nothing needs attention for {watchlist.date}.</p>}
       {groups.map((g) => (

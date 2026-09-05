@@ -20,7 +20,7 @@ function clock(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export default function Composer({ value, onChange, onSubmit, disabled, voice }) {
+export default function Composer({ value, onChange, onSubmit, disabled, voice, dev = false }) {
   const ref = useRef(null);
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -195,13 +195,13 @@ export default function Composer({ value, onChange, onSubmit, disabled, voice })
           <input type="checkbox" checked={autoSend} onChange={(e) => setAutoSend(e.target.checked)} />
           send voice questions automatically
         </label>
-        {voice && (
+        {voice && dev && (
           <span className="muted small">
             voice: {voice.stt.provider}
             {voice.stt.server_side ? "" : " (in browser)"}
-            {transcribing ? " · transcribing…" : ""}
           </span>
         )}
+        {transcribing && <span className="muted small">transcribing…</span>}
         {voiceError && <span className="voice-error">{voiceError}</span>}
       </div>
     </form>

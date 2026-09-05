@@ -13,8 +13,11 @@ export default function Header({
   watchCount,
   watchOpen,
   onToggleWatch,
+  dev,
+  onToggleDev,
 }) {
   const provider = health?.provider || "…";
+  const asOf = context?.snapshot_utc ? context.snapshot_utc.replace("T", " ").replace(":00Z", "Z") : null;
   return (
     <header className="header">
       <div className="brand-row">
@@ -35,15 +38,17 @@ export default function Header({
         </div>
       </div>
       <div className="status">
-        <span className={`badge provider-${provider}`} title="How answers are produced">
-          {provider === "offline" ? "offline mode" : "AI-assisted"}
-        </span>
-        {context && (
-          <span className="badge muted" title="Dataset snapshot (UTC)">
-            snapshot {context.snapshot_utc}
+        {(dev || provider === "offline") && (
+          <span className={`badge provider-${provider}`} title="How answers are produced">
+            {provider === "offline" ? "offline mode" : "AI-assisted"}
           </span>
         )}
-        {context?.pii_mode === "minimal" && (
+        {asOf && (
+          <span className="badge muted" title="Operational data time (UTC)">
+            {dev ? `snapshot ${context.snapshot_utc}` : `data as of ${asOf}`}
+          </span>
+        )}
+        {dev && context?.pii_mode === "minimal" && (
           <span className="badge good" title="PII minimal: crew names never leave this machine — the model sees ids; names are joined in the browser">
             PII: minimal
           </span>
@@ -53,9 +58,11 @@ export default function Header({
             {watchOpen ? "hide watchlist" : `watchlist${watchCount ? ` (${watchCount})` : ""}`}
           </button>
         )}
-        <button className="link" onClick={onToggleSamples} title="Sample questions by tier">
-          {samplesOpen ? "hide samples" : "sample questions"}
-        </button>
+        {dev && (
+          <button className="link" onClick={onToggleSamples} title="Sample questions by tier">
+            {samplesOpen ? "hide samples" : "sample questions"}
+          </button>
+        )}
         <button
           type="button"
           className="new-chat-btn"
@@ -65,6 +72,15 @@ export default function Header({
         >
           <PlusIcon width={16} height={16} />
           <span>New chat</span>
+        </button>
+        <button
+          type="button"
+          className={`dev-toggle ${dev ? "on" : ""}`}
+          onClick={onToggleDev}
+          title={dev ? "Developer view on — traces, timings, cost, sample questions" : "Developer view: traces, timings, cost, sample questions"}
+          aria-pressed={dev}
+        >
+          dev
         </button>
       </div>
     </header>

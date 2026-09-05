@@ -71,6 +71,10 @@ button { font: inherit; cursor: pointer; }
 .new-chat-btn:focus-visible { outline: 2px solid var(--det); outline-offset: 3px; }
 .new-chat-btn:disabled { opacity: .5; cursor: default; }
 .eyebrow { font: 500 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mut); white-space: nowrap; }
+.dev-toggle { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; border: 1px dashed var(--edge); background: transparent; color: var(--mut); opacity: .7; }
+.dev-toggle:hover { opacity: 1; border-style: solid; }
+.dev-toggle.on { opacity: 1; border-style: solid; border-color: var(--llm); color: var(--llm); background: var(--llm-bg); }
+.dev-toggle:focus-visible { outline: 2px solid var(--det); outline-offset: 2px; }
 .header h1 { font: 700 24px/1.1 var(--disp); margin: 2px 0 0; }
 .status { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
 

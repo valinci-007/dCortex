@@ -8,6 +8,19 @@ import Sidebar from "./components/Sidebar.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 
 const ACTIVE_KEY = "crew-ops-advisor:active-chat";
+const DEV_KEY = "crew-ops-advisor:dev";
+
+// Developer view: traces, timings, cost, provider and PII badges, sample questions. Off by
+// default — a controller sees the answer, its reasoning and a trust signal. ?dev=1 turns it on.
+function readDev() {
+  try {
+    const q = new URLSearchParams(window.location.search).get("dev");
+    if (q != null) return q !== "0" && q !== "false";
+    return localStorage.getItem(DEV_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function remember(id) {
   try {
@@ -48,7 +61,20 @@ export default function App() {
   const [directory, setDirectory] = useState(null); // crew id → name, joined locally (PII minimal mode)
   const [watchlist, setWatchlist] = useState(null);
   const [watchOpen, setWatchOpen] = useState(false);
+  const [dev, setDev] = useState(readDev);
+  const toggleDev = () => {
+    setDev((v) => {
+      try {
+        localStorage.setItem(DEV_KEY, v ? "0" : "1");
+      } catch {
+        // ignore
+      }
+      if (v) setSamplesOpen(false);
+      return !v;
+    });
+  };
   const bottomRef = useRef(null);
+  const listRef = useRef(null);
 
   const refreshChats = useCallback(async () => {
     try {
@@ -98,7 +124,9 @@ export default function App() {
   }, [refreshChats]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // follow the latest answer in a conversation; a new chat opens at the top of its home screen
+    if (messages.length === 0) listRef.current?.scrollTo({ top: 0 });
+    else bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
   const ask = useCallback(
@@ -242,6 +270,8 @@ export default function App() {
           setSamplesOpen(false);
           setWatchOpen((v) => !v);
         }}
+        dev={dev}
+        onToggleDev={toggleDev}
         onNewChat={newChat}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -260,24 +290,24 @@ export default function App() {
           onDelete={deleteChat}
         />
         <section className="chat">
-          <div className="messages">
+          <div className="messages" ref={listRef}>
             {messages.length === 0 && (
               <div className="empty">
                 <p className="empty-title">{active ? active.title : "Ask the desk a question."}</p>
                 <p className="empty-sub">
-                  Lookups, consequences, legality, cover options — every answer shows its sources and
-                  the rule evidence behind it. Times are UTC; the snapshot is {context?.snapshot_utc || "…"}.
-                  Conversations are saved and can be continued later.
+                  {dev
+                    ? `Lookups, consequences, legality, cover options — every answer shows its sources and the rule evidence behind it. Times are UTC; the snapshot is ${context?.snapshot_utc || "…"}. Conversations are saved and can be continued later.`
+                    : "Rosters and reserves, duty limits, sick calls and delays, cover options. Every answer explains its reasoning; conversations are kept. Times are UTC."}
                 </p>
                 {!active && watchlist && (
                   <div className="empty-watch">
-                    <Watchlist watchlist={watchlist} directory={directory} onPick={(q) => ask(q)} />
+                    <Watchlist watchlist={watchlist} directory={directory} onPick={(q) => ask(q)} dev={dev} />
                   </div>
                 )}
               </div>
             )}
             {messages.map((m, i) => (
-              <Message key={i} message={m} voice={voice} directory={directory} />
+              <Message key={i} message={m} voice={voice} directory={directory} dev={dev} />
             ))}
 
             <div ref={bottomRef} />
@@ -296,13 +326,14 @@ export default function App() {
             </div>
           )}
           {error && <div className="error-bar">{error}</div>}
-          <Composer value={draft} onChange={setDraft} onSubmit={(q) => ask(q)} disabled={busy} voice={voice} />
+          <Composer value={draft} onChange={setDraft} onSubmit={(q) => ask(q)} disabled={busy} voice={voice} dev={dev} />
         </section>
         {watchOpen && (
           <aside className="drawer">
             <Watchlist
               watchlist={watchlist}
               directory={directory}
+              dev={dev}
               compact
               onPick={(q) => {
                 setDraft(q);
@@ -311,7 +342,7 @@ export default function App() {
             />
           </aside>
         )}
-        {samplesOpen && (
+        {dev && samplesOpen && (
           <aside className="drawer">
             <Samples
               samples={context?.samples || []}

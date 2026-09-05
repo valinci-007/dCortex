@@ -77,7 +77,7 @@ function joinNames(text, directory) {
   return text.replace(/\bC-\d{4}\b(?!\s*\()/g, (id) => (directory[id] ? `${id} (${directory[id]})` : id));
 }
 
-export default function Message({ message, voice, directory }) {
+export default function Message({ message, voice, directory, dev = false }) {
   const [showTrace, setShowTrace] = useState(false);
   if (message.role === "user") {
     return (
@@ -95,7 +95,7 @@ export default function Message({ message, voice, directory }) {
               <li key={i} className={s.done ? (s.ok ? "done" : "failed") : "running"}>
                 <span className="tick" aria-hidden="true">{s.done ? (s.ok ? "✓" : "✗") : ""}</span>
                 <span className="step-label">{s.label}</span>
-                {s.done && s.summary && <span className="step-summary">{s.summary}</span>}
+                {dev && s.done && s.summary && <span className="step-summary">{s.summary}</span>}
               </li>
             ))}
             {(message.phase || message.steps.length === 0) && !message.text && (
@@ -131,22 +131,26 @@ export default function Message({ message, voice, directory }) {
     <div className="msg assistant">
       <div className={`card ${a.refused ? "refused" : ""}`}>
         <div className="meta">
-          <span className={`badge provider-${offline ? "offline" : a.mode}`}>
-            {fallback ? "offline fallback" : offline ? "offline mode" : "AI-assisted"}
-          </span>
+          {/* Controller view: only what changes how far the answer can be trusted. */}
+          {(offline || fallback) && (
+            <span className="badge provider-offline" title="Answered by the desk's rule-based router, not the model">
+              {fallback ? "offline fallback" : "offline mode"}
+            </span>
+          )}
+          {dev && !offline && !fallback && <span className={`badge provider-${a.mode}`}>AI-assisted</span>}
           {a.refused && <span className="badge warn">declined to answer</span>}
-          {directory && !offline && (
+          {dev && directory && !offline && (
             <span className="badge good" title="Crew names were removed before the question and data reached the model; they are joined back here from the local directory.">
               names never sent to model
             </span>
           )}
           {a.error && <span className="badge bad">error</span>}
-          {a.redactions && a.redactions.length > 0 && (
+          {dev && a.redactions && a.redactions.length > 0 && (
             <span className="badge warn" title={`removed: ${a.redactions.join(", ")}`}>
               implementation terms withheld
             </span>
           )}
-          {a.confidence && a.confidence !== "error" && (
+          {a.confidence && a.confidence !== "error" && !a.refused && (
             <span
               className={`badge ${CONFIDENCE[a.confidence]?.cls || "muted"}`}
               title={
@@ -158,20 +162,24 @@ export default function Message({ message, voice, directory }) {
                   : "")
               }
             >
-              {a.confidence}
-              {grounding?.ok && a.confidence.startsWith("verified") ? ` · ${grounding.checked} facts` : ""}
+              {a.confidence === "unverified" ? "unverified figures" : a.confidence}
+              {dev && grounding?.ok && a.confidence.startsWith("verified") ? ` · ${grounding.checked} facts` : ""}
             </span>
           )}
-          <span className="badge muted">{Math.round(a.elapsed_ms / 100) / 10} s</span>
-          {a.cost_usd != null && <span className="badge muted">${a.cost_usd.toFixed(3)}</span>}
-          <span className="badge muted">
-            {a.trace.filter((s) => s.kind === "tool").length} tool call
-            {a.trace.filter((s) => s.kind === "tool").length === 1 ? "" : "s"}
-          </span>
+          {dev && <span className="badge muted">{Math.round(a.elapsed_ms / 100) / 10} s</span>}
+          {dev && a.cost_usd != null && <span className="badge muted">${a.cost_usd.toFixed(3)}</span>}
+          {dev && (
+            <span className="badge muted">
+              {a.trace.filter((s) => s.kind === "tool").length} tool call
+              {a.trace.filter((s) => s.kind === "tool").length === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
         {fallback && (
           <div className="note warn">
-            Model provider failed ({a.fallback_reason}); answered by the offline router instead.
+            {dev
+              ? `Model provider failed (${a.fallback_reason}); answered by the offline router instead.`
+              : "The assistant is temporarily in offline mode — this answer comes from the desk's rule-based router and covers lookups and standard checks only."}
           </div>
         )}
         <div className="answer" dangerouslySetInnerHTML={{ __html: marked.parse(answer) }} />
@@ -179,12 +187,14 @@ export default function Message({ message, voice, directory }) {
           <div className="reasoning" dangerouslySetInnerHTML={{ __html: marked.parse(reasoning) }} />
         )}
         <div className="card-actions">
-          <button className="link small" onClick={() => setShowTrace((v) => !v)}>
-            {showTrace ? "hide" : "show"} reasoning trail
-          </button>
+          {dev && (
+            <button className="link small" onClick={() => setShowTrace((v) => !v)}>
+              {showTrace ? "hide" : "show"} reasoning trail
+            </button>
+          )}
           <ReadAloud text={a.answer || ""} voice={voice} />
         </div>
-        {showTrace && <Trace trace={a.trace} usage={a.usage} />}
+        {dev && showTrace && <Trace trace={a.trace} usage={a.usage} />}
       </div>
     </div>
   );

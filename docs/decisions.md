@@ -24,6 +24,7 @@ Every significant decision gets an entry: context → options considered → dec
 | [ADR-0016](#adr-0016) | Voice interface with configurable speech providers (local Whisper now, Sarvam AI at the event, browser fallback) | **Accepted** | 2026-09-04 |
 | [ADR-0017](#adr-0017) | PII minimisation at the tool boundary (`CREW_OPS_PII_MODE=minimal`) with a console audit trail of everything sent to the model | **Accepted** | 2026-09-05 |
 | [ADR-0018](#adr-0018) | Tier 3 completion: streamed progress, proactive watchlist, scenario workspace (chained disruptions, "make the call"), graded confidence | **Accepted** | 2026-09-05 |
+| [ADR-0019](#adr-0019) | Controller view by default; developer view (traces, timings, cost, provider/PII badges, sample questions) behind a toggle | **Accepted** | 2026-09-05 |
 
 ---
 
@@ -516,6 +517,34 @@ been updated for streaming — fixed, with the test that was missing. Live chain
 conversation: sick call → ranked options → "go with option 1" committed after the
 seven-rule check → reserve list without the man called out → the cover goes sick and the
 vacancy reopens with neither offered. First visible activity at ~4 s on Tier-3 questions.
+
+---
+
+## ADR-0019 — Controller view by default, developer view behind a toggle
+**Status: Accepted** (Rajesh raised it, 2026-09-05)
+
+**Context.** An answer card had grown eight badges — provider, PII mode, "verified · 21
+facts", seconds, dollars, tool-call count — plus a reasoning trail and a provider name under
+the composer. Checked against the brief, the controller-facing requirements are: reasoning
+"a controller can read and challenge" (§2), "visible explanations on all non-trivial
+answers" (§5), and the UX criterion "would a controller under pressure find this usable and
+trustworthy?" (§7); the optional confidence signalling, proactive alerting, multi-turn and
+voice. Cost, latency, tool counts, traces and sample questions are ours and the judges'
+("sample inputs and outputs" is a deliverable, not a desk feature).
+
+**Decision.** Two views over one UI. **Controller view (default):** the answer, its
+Reasoning, one trust signal (verified · verified after correction · unverified figures ·
+declined, plus an offline-mode warning when the router answered), the scenario strip, the
+watchlist, conversations, voice; the header shows the data time as "data as of …". Nothing
+names a provider, a model, a cost or a tool. **Developer view** (`dev` toggle in the
+header, `?dev=1`, remembered per browser): everything above plus provider and PII badges,
+grounding counts, seconds, cost, tool-call counts, the reasoning trail with tool arguments
+and results, step summaries while streaming, the speech provider, and the sample-question
+drawer. A production deployment would put the developer view behind a supervisor role.
+
+**Consequences.** The demo flips the toggle to show the audit view; the controller never
+sees it. The refusal text and the confidence badge are the only trust cues in the default
+view, which is deliberate — a desk under pressure needs one signal, not six.
 
 ---
 
