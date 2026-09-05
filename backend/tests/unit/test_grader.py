@@ -94,3 +94,17 @@ def test_action_strings_rule_aliases_and_ranks():
         "the delay exceeds the crew's FDP so tail legs must be re-crewed from reserves or cancelled",
         long,
     ).passed
+
+
+def test_controller_style_timestamps_and_enumeration_spellings():
+    # 03:30Z is how a controller writes 03:30:00Z; a different minute is still a miss
+    assert grade(
+        "Earliest report: 2026-09-17T03:30Z.", {"earliest_report": "2026-09-17T03:30:00Z"}
+    ).passed
+    assert not grade(
+        "Earliest report: 2026-09-17T03:35Z.", {"earliest_report": "2026-09-17T03:30:00Z"}
+    ).passed
+    # certificate types are spoken, not underscored
+    answer = "C-2091 — medical class 1, expires 2026-09-23; C-3116 — dangerous goods, 2026-09-28"
+    assert grade(answer, {"types": ["medical_class1", "dangerous_goods"]}).passed
+    assert not grade(answer, {"types": ["medical_class2"]}).passed

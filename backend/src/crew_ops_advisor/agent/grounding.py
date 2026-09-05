@@ -53,6 +53,24 @@ def _normalise(text: str) -> str:
     return re.sub(r"(?<=\d),(?=\d{3}\b)", "", text)
 
 
+_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2}))?Z?$")
+
+
+def _timestamp_in(corpus: str, token: str) -> bool:
+    """A date or timestamp is supported by any equivalent spelling in the evidence:
+    2026-09-17T03:30Z (the controller's short form) by 2026-09-17T03:30:00Z and back."""
+    if token in corpus:
+        return True
+    m = _TIMESTAMP_RE.match(token)
+    if not m:
+        return False
+    minute, seconds = m[1], m[2] or "00"
+    forms = {f"{minute}:{seconds}Z", f"{minute}:{seconds}"}
+    if seconds == "00":
+        forms |= {f"{minute}Z", minute}
+    return any(re.search(re.escape(f) + r"(?![\d:])", corpus) for f in forms)
+
+
 def _number_in(corpus: str, token: str) -> bool:
     """Numeric equality regardless of formatting: 50.00 == 50.0 == 50, 41,200 == 41200.0."""
     token = token.replace(",", "")
@@ -81,7 +99,7 @@ def check_grounding(answer_text: str, corpus: str) -> GroundingResult:
 
     for m in DATE_RE.finditer(body):
         checked += 1
-        if m.group() not in corpus:
+        if not _timestamp_in(corpus, m.group()):
             unsupported.append(m.group())
 
     for m in DURATION_RE.finditer(body):

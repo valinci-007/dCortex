@@ -113,7 +113,7 @@ def redact(text: str) -> str:
 
 IDENTITY_ANSWER = (
     "I'm the Crew Ops Advisor for dCortex Air Crew Control. I answer questions from the "
-    "operational snapshot: rosters, pairings and reserves; duty clocks and legality against "
+    "desk's operational data: rosters, pairings and reserves; duty clocks and legality against "
     "the seven rules (RULE-FDP-01 … RULE-BASE-07); the impact of sick calls, delays, station "
     "closures and cancellations; ranked cover options with costs; and callout drafts. Every "
     "figure I give comes from the desk's data, and I say so when I can't answer reliably."

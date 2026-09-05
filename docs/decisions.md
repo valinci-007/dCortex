@@ -342,6 +342,18 @@ acceptable, and visible in the answer text on review.
 
 ---
 
+### ADR-0014 addendum — data currency in the controller's words (2026-09-04)
+The first prompt told the model the data was "the operational snapshot as of …, not a live
+feed; say so if it matters" — and it decided it always mattered, appending the caveat to
+identity answers, capability lists and small talk. A controller does not need to be told
+that the desk works off a data cut (the data time sits in the header) and reads the
+repetition as the assistant covering itself. The prompt now says: resolve relative times
+into the actual date ("tomorrow (2026-09-15)"), never mention "snapshot"/"live feed"/data
+currency in identity or general answers, and add a single "as of 18:00Z" only when the
+question asks for something that may have changed after the data time (a departure, a
+current position, the latest status). No sign-offs or offers of further help either.
+Tier 1/2 evals re-run after the change (see `evals/reports/tier12-agent-sdk-v2.*`).
+
 ## ADR-0015 — Two projects, and conversations that persist
 **Status: Accepted** (team decision, Rajesh, 2026-09-04)
 

@@ -20,7 +20,11 @@ export function canSpeak() {
 
 const RECORDING_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus", "audio/ogg"];
 
-/** Start recording; returns a controller with stop() → Blob in the browser's native format. */
+/**
+ * Start recording. Returns a controller: stop() → Blob in the browser's native format,
+ * cancel() to discard, level() → current microphone loudness 0..1 for the live waveform,
+ * startedAt for the timer.
+ */
 export async function startRecording() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const mime = RECORDING_TYPES.find((m) => MediaRecorder.isTypeSupported?.(m));
@@ -29,11 +33,18 @@ export async function startRecording() {
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const stopped = new Promise((resolve) => (recorder.onstop = resolve));
   recorder.start();
+  const meter = createMeter(stream);
+  const release = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    meter.close();
+  };
   return {
+    startedAt: Date.now(),
+    level: meter.level,
     async stop() {
       recorder.stop();
       await stopped;
-      stream.getTracks().forEach((t) => t.stop());
+      release();
       return new Blob(chunks, { type: recorder.mimeType || mime || "application/octet-stream" });
     },
     cancel() {
@@ -42,7 +53,41 @@ export async function startRecording() {
       } catch {
         // already stopped
       }
-      stream.getTracks().forEach((t) => t.stop());
+      release();
+    },
+  };
+}
+
+// Taps the microphone stream for a loudness reading (nothing is connected to the speakers).
+// Purely cosmetic: if the Web Audio API is unavailable the waveform just stays flat.
+function createMeter(stream) {
+  let ctx = null;
+  let analyser = null;
+  let samples = null;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.5;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    samples = new Uint8Array(analyser.fftSize);
+    ctx.resume?.();
+  } catch {
+    analyser = null;
+  }
+  return {
+    level() {
+      if (!analyser) return 0;
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const x = (samples[i] - 128) / 128;
+        sum += x * x;
+      }
+      return Math.min(1, Math.sqrt(sum / samples.length) * 4); // RMS, boosted for speech levels
+    },
+    close() {
+      ctx?.close?.();
     },
   };
 }

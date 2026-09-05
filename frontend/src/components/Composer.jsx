@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { browserRecognitionAvailable, canRecord, recognizeInBrowser, startRecording } from "../audio.js";
+import { MicIcon, SendIcon, StopIcon } from "./icons.jsx";
+import Waveform from "./Waveform.jsx";
 
 const AUTO_SEND_KEY = "crew-ops-advisor:voice-auto-send";
 
@@ -13,17 +15,23 @@ function readAutoSend() {
   }
 }
 
+function clock(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 export default function Composer({ value, onChange, onSubmit, disabled, voice }) {
   const ref = useRef(null);
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [voiceError, setVoiceError] = useState(null);
   const [autoSend, setAutoSend] = useState(readAutoSend);
   const controller = useRef(null);
 
   useEffect(() => {
-    if (!disabled && !listening) ref.current?.focus();
-  }, [disabled, listening]);
+    if (!disabled && !listening && !transcribing) ref.current?.focus();
+  }, [disabled, listening, transcribing]);
 
   useEffect(() => {
     try {
@@ -33,13 +41,32 @@ export default function Composer({ value, onChange, onSubmit, disabled, voice })
     }
   }, [autoSend]);
 
+  // Recording timer, and Esc to stop.
+  useEffect(() => {
+    if (!listening) return undefined;
+    const started = controller.current?.startedAt || Date.now();
+    setElapsed(0);
+    const tick = setInterval(() => setElapsed(Date.now() - started), 250);
+    const onKey = (e) => {
+      if (e.key === "Escape") stopVoice();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      clearInterval(tick);
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening]);
+
   const serverSide = !!voice?.stt?.server_side;
   const micSupported = serverSide ? canRecord() : browserRecognitionAvailable();
   const micTitle = !micSupported
     ? "Voice input is not available in this browser"
-    : serverSide
-      ? `Speak your question (transcribed by the ${voice.stt.provider} provider)`
-      : "Speak your question (browser speech recognition)";
+    : listening
+      ? "Stop and transcribe (Esc)"
+      : serverSide
+        ? `Speak your question (transcribed by the ${voice.stt.provider} provider)`
+        : "Speak your question (browser speech recognition)";
 
   const finish = (text) => {
     const t = (text || "").trim();
@@ -69,7 +96,11 @@ export default function Composer({ value, onChange, onSubmit, disabled, voice })
     } catch (e) {
       setListening(false);
       controller.current = null;
-      setVoiceError(e.message === "not-allowed" ? "Microphone access was denied." : e.message);
+      setVoiceError(
+        e.name === "NotAllowedError" || e.message === "not-allowed"
+          ? "Microphone access was denied — allow it in the address bar and try again."
+          : e.message,
+      );
     }
   };
 
@@ -110,34 +141,53 @@ export default function Composer({ value, onChange, onSubmit, disabled, voice })
     }
   };
 
+  const micState = transcribing ? "busy" : listening ? "on" : "";
+  const levelFn = controller.current?.level;
+
   return (
     <form className="composer" onSubmit={submit}>
-      <div className="composer-row">
-        <textarea
-          ref={ref}
-          rows={2}
-          value={value}
-          disabled={disabled || transcribing}
-          placeholder={
-            listening
-              ? "Listening… click the microphone again to stop."
-              : "e.g. Captain C-1042 called in sick for tomorrow — which flights are now uncrewed?"
-          }
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
+      <div className={`composer-row ${listening ? "is-listening" : ""}`}>
+        {listening ? (
+          <div className="listening" role="status" aria-live="polite">
+            <span className="rec-dot" aria-hidden="true" />
+            <span className="rec-time">{clock(elapsed)}</span>
+            <Waveform level={levelFn} active={listening} />
+            <span className="rec-hint">Listening — press ■ or Esc when you're done</span>
+          </div>
+        ) : (
+          <textarea
+            ref={ref}
+            rows={2}
+            value={value}
+            disabled={disabled || transcribing}
+            placeholder={
+              transcribing
+                ? "Transcribing…"
+                : "e.g. Captain C-1042 called in sick for tomorrow — which flights are now uncrewed?"
+            }
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+          />
+        )}
         <button
           type="button"
-          className={`mic ${listening ? "on" : ""}`}
+          className={`mic ${micState}`}
           onClick={listening ? stopVoice : startVoice}
           disabled={disabled || transcribing || !micSupported}
           title={micTitle}
+          aria-label={listening ? "Stop recording" : "Speak your question"}
           aria-pressed={listening}
         >
-          {transcribing ? "…" : listening ? "■" : "🎤"}
+          {transcribing ? <span className="spinner" aria-hidden="true" /> : listening ? <StopIcon /> : <MicIcon />}
         </button>
-        <button type="submit" disabled={disabled || transcribing || !value.trim()}>
-          {disabled ? "Working…" : "Ask"}
+        <button
+          type="submit"
+          className="ask"
+          disabled={disabled || listening || transcribing || !value.trim()}
+          title="Ask (Enter)"
+        >
+          {disabled ? <span className="spinner" aria-hidden="true" /> : <SendIcon />}
+          <span>{disabled ? "Working…" : "Ask"}</span>
         </button>
       </div>
       <div className="composer-foot">
@@ -149,7 +199,7 @@ export default function Composer({ value, onChange, onSubmit, disabled, voice })
           <span className="muted small">
             voice: {voice.stt.provider}
             {voice.stt.server_side ? "" : " (in browser)"}
-            {transcribing ? " · transcribing…" : listening ? " · recording" : ""}
+            {transcribing ? " · transcribing…" : ""}
           </span>
         )}
         {voiceError && <span className="voice-error">{voiceError}</span>}

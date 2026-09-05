@@ -9,12 +9,20 @@ function relative(iso) {
   return d === 1 ? "yesterday" : `${d} days ago`;
 }
 
-export default function Sidebar({ chats, activeId, onNew, onSelect, onRename, onDelete, busy }) {
+import { CloseIcon, PlusIcon } from "./icons.jsx";
+
+export default function Sidebar({ chats, activeId, onNew, onSelect, onRename, onDelete, busy, open, onClose }) {
   return (
-    <aside className="sidebar">
-      <button className="new-chat" onClick={onNew} disabled={busy}>
-        + New chat
-      </button>
+    <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Conversations">
+      <div className="sidebar-top">
+        <button className="new-chat" onClick={onNew} disabled={busy}>
+          <PlusIcon width={16} height={16} />
+          <span>New chat</span>
+        </button>
+        <button type="button" className="icon-btn sidebar-close" onClick={onClose} title="Hide conversations" aria-label="Hide conversations">
+          <CloseIcon />
+        </button>
+      </div>
       <div className="rail-title">Conversations</div>
       {chats.length === 0 && <div className="sidebar-empty">No conversations yet.</div>}
       <ul className="chat-list">

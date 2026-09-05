@@ -42,6 +42,7 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState(null);
   const [samplesOpen, setSamplesOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // narrow windows: slide-in panel
   const [voice, setVoice] = useState(null);
   const bottomRef = useRef(null);
 
@@ -124,7 +125,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const newChat = () => openChat(null);
+  const newChat = () => {
+    setSidebarOpen(false);
+    openChat(null);
+  };
+
+  const selectChat = (id) => {
+    setSidebarOpen(false);
+    openChat(id);
+  };
 
   const renameChat = async (chat) => {
     const title = window.prompt("Rename conversation", chat.title);
@@ -156,16 +165,23 @@ export default function App() {
         health={health}
         context={context}
         chat={active}
+        busy={busy}
         samplesOpen={samplesOpen}
         onToggleSamples={() => setSamplesOpen((v) => !v)}
+        onNewChat={newChat}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
       <main className="main">
+        {sidebarOpen && <div className="scrim" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
         <Sidebar
           chats={chats}
           activeId={activeId}
           busy={busy}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           onNew={newChat}
-          onSelect={openChat}
+          onSelect={selectChat}
           onRename={renameChat}
           onDelete={deleteChat}
         />

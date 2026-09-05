@@ -319,3 +319,11 @@ def test_grounding_accepts_facts_from_a_reopened_chat(store, registry):
     )
     answer = advisor.ask("remind me of his base?", conv)
     assert answer.grounding.ok and len(provider.session.sent_user) == 1
+
+
+def test_grounding_accepts_a_timestamp_written_without_seconds():
+    from crew_ops_advisor.agent.grounding import check_grounding
+
+    corpus = "earliest_report: 2026-09-17T03:30:00Z min_rest_hours 12"
+    assert check_grounding("Earliest report: 2026-09-17T03:30Z.", corpus).unsupported == ()
+    assert "2026-09-17T03:45Z" in check_grounding("Report 2026-09-17T03:45Z.", corpus).unsupported

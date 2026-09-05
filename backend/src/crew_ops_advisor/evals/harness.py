@@ -236,6 +236,28 @@ def _words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2}))?Z?$")
+
+
+def _timestamp_present(text: str, token: str) -> bool:
+    """2026-09-17T03:30:00Z and 2026-09-17T03:30Z (how a controller writes it) are one fact."""
+    m = _TIMESTAMP_RE.match(token)
+    if not m:
+        return token.lower() in text.lower()
+    minute, seconds = m[1], m[2] or "00"
+    forms = {f"{minute}:{seconds}Z", f"{minute}:{seconds}"}
+    if seconds == "00":
+        forms |= {f"{minute}Z", minute}
+    return any(re.search(re.escape(f) + r"(?![\d:])", text) for f in forms)
+
+
+def _squashed_present(text: str, token: str) -> bool:
+    """Enumeration tokens (medical_class1, dangerous_goods) match their spoken form
+    ("medical class 1", "dangerous goods")."""
+    squash = lambda v: re.sub(r"[^a-z0-9]+", "", v.lower())  # noqa: E731
+    return squash(token) in squash(text)
+
+
 def normalise_text(text: str, *, year: int = 2026) -> str:
     """Answer text as the grader sees it: thousands separators removed (250,000 -> 250000) and
     textual dates ("17 Sep", "Sep 17") echoed in ISO form so date facts can be matched."""
@@ -304,6 +326,8 @@ def _fact_present(text: str, fact: str) -> bool:
         return _rule_present(text, fact)
     if re.fullmatch(r"\d{1,2}:\d{2}", fact):
         return fact in text
+    if _TIMESTAMP_RE.match(fact):
+        return _timestamp_present(text, fact)
     return fact.lower() in text.lower()
 
 
@@ -316,6 +340,10 @@ def _present(text: str, token: str) -> bool:
         return True
     if low_token in low_text:
         return True
+    if _TIMESTAMP_RE.match(token):
+        return _timestamp_present(text, token)
+    if "_" in token and re.fullmatch(r"[a-z0-9_]+", low_token):
+        return _squashed_present(text, token)
     if re.fullmatch(r"RULE-[A-Z]+-\d{2}", token):
         return _rule_present(text, token)
     for alias in SYNONYMS.get(low_token, ()):
