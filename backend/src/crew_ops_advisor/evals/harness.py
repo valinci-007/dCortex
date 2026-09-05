@@ -93,6 +93,20 @@ class EvalRow:
             "tool_calls": [s.name for s in self.answer.tool_calls],
             "cost_usd": self.answer.cost_usd,
             "mode": self.answer.mode,
+            "confidence": self.answer.confidence,
+            "grounding": self.answer.grounding.to_dict() if self.answer.grounding else None,
+            "redactions": list(self.answer.redactions),
+            # compact trace: enough to see *why* a correction or an extra turn happened
+            "trace": [
+                {
+                    "kind": s.kind,
+                    "name": s.name,
+                    "ok": s.ok,
+                    "elapsed_ms": s.elapsed_ms,
+                    "summary": (s.summary or "")[:300],
+                }
+                for s in self.answer.trace
+            ],
             "answer": self.answer.text,
         }
 
@@ -265,7 +279,9 @@ def normalise_text(text: str, *, year: int = 2026) -> str:
     """Answer text as the grader sees it: thousands separators removed (250,000 -> 250000),
     textual dates ("17 Sep", "Sep 17") echoed in ISO form, and rotations written the way a
     controller writes them ("DX402/403/404") echoed as the individual flight ids."""
-    out = re.sub(r"(?<=\d),(?=\d{3}\b)", "", text)
+    out = re.sub(
+        r"\b\d{1,3}(?:,\d{2})*(?:,\d{3})+\b", lambda m: m.group().replace(",", ""), text
+    )  # 250,000 and 2,50,000 (lakh grouping) both read as 250000
     extra: list[str] = []
     for m in _TEXT_DATE_RE.finditer(out):
         day, mon = (m[1], m[2]) if m[1] else (m[4], m[3])

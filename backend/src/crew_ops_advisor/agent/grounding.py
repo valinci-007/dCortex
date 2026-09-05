@@ -49,8 +49,12 @@ def evidence_corpus(
     return _normalise("\n".join(parts))
 
 
+# 2,50,000 (lakh grouping, how INR is written) and 250,000 are the same figure
+_GROUPED_RE = re.compile(r"\b\d{1,3}(?:,\d{2})*(?:,\d{3})+\b")
+
+
 def _normalise(text: str) -> str:
-    return re.sub(r"(?<=\d),(?=\d{3}\b)", "", text)
+    return _GROUPED_RE.sub(lambda m: m.group().replace(",", ""), text)
 
 
 _TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2}))?Z?$")

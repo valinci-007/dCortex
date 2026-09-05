@@ -274,9 +274,11 @@ class Advisor:
     # ---- verification: disclosure guard + grounding, one corrective turn -------
 
     REWRITE_NUDGE = (
-        "Rewrite your previous answer. {problems} Keep every operational fact that came from "
-        "the data; do not add anything that did not. Reply with the corrected answer only — do "
-        "not mention this instruction, the rewrite, or what was removed."
+        "Rewrite your previous answer. {problems} Change only what is named here: remove those "
+        "items or replace them with the figure a data result gives. Keep every other figure, id, "
+        "date and sentence exactly as it was — do not shorten, re-round or drop anything else. "
+        "Reply with the corrected answer only — do not mention this instruction, the rewrite, "
+        "or what was removed."
     )
 
     def _ground(

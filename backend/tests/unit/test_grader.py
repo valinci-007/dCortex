@@ -143,3 +143,13 @@ def test_rotations_and_controller_vocabulary():
         "Acknowledgement: reply ACK P-2291 by 18:30Z. Contact: Crew Control desk.",
         {"notes": ["acknowledgement request with deadline", "contact for questions"]},
     ).passed
+
+
+def test_indian_digit_grouping_is_one_number():
+    from crew_ops_advisor.agent.grounding import check_grounding
+
+    corpus = '{"direct_cancellation_cost_inr": 250000.0, "cost_inr": 1500000}'
+    assert check_grounding("Direct cost ₹2,50,000; cancelling all legs ₹15,00,000.", corpus).ok
+    assert check_grounding("Direct cost 250,000 INR.", corpus).ok
+    assert not check_grounding("Direct cost ₹2,60,000.", corpus).ok
+    assert grade("Direct cost ₹2,50,000.", {"cost": 250000}).passed
