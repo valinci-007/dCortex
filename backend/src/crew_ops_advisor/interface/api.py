@@ -41,7 +41,6 @@ from crew_ops_advisor.chats import ChatStore
 from crew_ops_advisor.config import Settings
 from crew_ops_advisor.data import Datastore, load_json
 from crew_ops_advisor.domain.timeutil import fmt_utc
-from crew_ops_advisor.simulation.scenario import Scenario
 from crew_ops_advisor.voice import (
     SpeechToText,
     TextToSpeech,
@@ -129,9 +128,7 @@ class ChatService:
                 if chat is None:
                     raise KeyError(chat_id)
                 conv = self.advisor.new_conversation(
-                    session_id=chat.session_id,
-                    prior=self.store.exchanges(chat_id),
-                    scenario=Scenario.from_dict(chat.scenario),
+                    session_id=chat.session_id, prior=self.store.exchanges(chat_id)
                 )
                 if len(self._live) >= 200:  # bounded memory; reopened chats rehydrate
                     self._live.pop(next(iter(self._live)))
@@ -148,7 +145,6 @@ class ChatService:
         answer = self.advisor.ask(question, conv, on_event=on_event)
         self.store.append(chat_id, "assistant", answer.text, answer=answer.to_dict())
         self.store.set_session(chat_id, conv.session_id)
-        self.store.set_scenario(chat_id, conv.scenario.to_dict())
         chat = self.store.get(chat_id)
         assert chat is not None
         return AskResponse(conversation_id=chat_id, chat=chat.to_dict(), answer=answer.to_dict())
@@ -257,17 +253,6 @@ def create_app(
             raise HTTPException(status_code=404, detail="chat not found")
         chats.forget(chat_id)
 
-    @app.post("/api/chats/{chat_id}/scenario/reset")
-    def reset_scenario(chat_id: str) -> dict[str, Any]:
-        """Discard the chat's working scenario (everyone available again, covers undone)."""
-        if chats.store.get(chat_id) is None:
-            raise HTTPException(status_code=404, detail="chat not found")
-        conv = chats.conversation(chat_id)
-        discarded = conv.scenario.summary()
-        conv.scenario.reset()
-        chats.store.set_scenario(chat_id, None)
-        return {"discarded": discarded, "scenario": conv.scenario.to_dict()}
-
     @app.post("/api/chats/{chat_id}/ask", response_model=AskResponse)
     def ask_in_chat(chat_id: str, req: ChatAskRequest) -> AskResponse:
         if chats.store.get(chat_id) is None:
@@ -300,13 +285,9 @@ def create_app(
     # ---- voice ---------------------------------------------------------------
 
     @app.get("/api/watchlist")
-    def watchlist(date: str | None = None, chat_id: str | None = None) -> dict[str, Any]:
-        """Proactive alerts for a date (default tomorrow) — deterministic, no model call.
-        With a chat_id the chat's scenario counts: applied covers and vacant pairing days."""
-        registry = advisor.registry
-        if chat_id and chats.store.get(chat_id) is not None:
-            registry = chats.conversation(chat_id).registry
-        outcome = registry.call("watchlist", {"date": date} if date else {})
+    def watchlist(date: str | None = None) -> dict[str, Any]:
+        """Proactive alerts for a date (default tomorrow) — deterministic, no model call."""
+        outcome = advisor.registry.call("watchlist", {"date": date} if date else {})
         if not outcome.ok:
             raise HTTPException(status_code=400, detail=outcome.error)
         return outcome.result

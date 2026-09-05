@@ -214,7 +214,7 @@ flowchart LR
     API --> O[Orchestrator<br/>one loop · refusal policy · grounding check · offline fallback]
     O <-->|Agent SDK: runs the loop| M[Claude<br/>plans · narrates · never computes]
     O -.->|fallback| R[Offline keyword router<br/>same tools · labelled]
-    M -->|MCP tool calls| T[Tool registry — 38 typed tools<br/>schema-validated · errors structured]
+    M -->|MCP tool calls| T[Tool registry — 35 typed tools<br/>schema-validated · errors structured]
     R --> T
     T --> Q[Query tools T1]
     T --> S[Simulation tools T2]

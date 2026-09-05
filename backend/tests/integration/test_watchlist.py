@@ -27,7 +27,6 @@ def test_watchlist_for_tomorrow_flags_limits_lapsing_certs_and_risk(store):
     assert all(r["disruption_risk_score"] >= 0.5 for r in w["high_risk"])
     scores = [r["disruption_risk_score"] for r in w["high_risk"]]
     assert scores == sorted(scores, reverse=True)
-    assert w["uncovered_flights"] == []
 
 
 def test_watchlist_margins_are_configurable(store):

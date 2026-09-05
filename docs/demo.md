@@ -63,7 +63,7 @@ make run                      # builds the DB + frontend, serves API and UI on :
 - *Why not put the data in the prompt?* Works for lookups, fails at legality: exact arithmetic
   against a rulebook. The model here never sees the dataset, only tool results.
 - *What generalises to held-out scenarios?* The tools, not intents: any new phrasing is a new
-  plan over the same 38 tools. The offline router is the closed-world contrast — and it is
+  plan over the same 35 tools. The offline router is the closed-world contrast — and it is
   labelled as such whenever it answers.
 - *How do you know the model isn't doing the maths?* The audit console shows every tool result
   going in and the answer coming out; the grounding check rejects any figure that is not in the

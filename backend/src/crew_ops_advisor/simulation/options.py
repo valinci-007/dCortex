@@ -92,26 +92,51 @@ class OptionsResult:
     options: tuple[Option, ...]
     excluded: tuple[Excluded, ...]
     note: str = ""
+    escalation: dict[str, Any] | None = None  # positioning options when nobody local is legal
 
     @property
     def expected_choice(self) -> Option | None:
         return self.options[0] if self.options else None
 
+    @property
+    def has_on_time_cover(self) -> bool:
+        """A legal option that keeps the first departure on time (a delayed deadhead is not)."""
+        return any(o.legal and o.kind != "cancel" and o.delay_hours == 0 for o in self.options)
+
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "pairing_id": self.pairing_id,
-            "role": self.role,
-            "from_date": self.from_date.isoformat(),
-            "duty_dates": [d.isoformat() for d in self.dates],
-            "uncovered_flights": list(self.uncovered_flights),
-            "passengers_at_risk": self.passengers,
-            "required_report_utc": fmt_utc(self.required_report_utc),
-            "candidates_considered": len(self.options) + len(self.excluded) - 1,
-            "options": [o.to_dict() for o in self.options],
-            "expected_choice": self.expected_choice.to_dict() if self.expected_choice else None,
-            "excluded_candidates": [e.to_dict() for e in self.excluded],
-            "note": self.note,
-        }
+        out: dict[str, Any] = {}
+        if self.escalation is not None:
+            best = (self.escalation.get("positioning") or {}).get("options") or []
+            on_time = [o for o in best if o.get("on_time")]
+            out["headline"] = (
+                f"NO LEGAL ON-TIME COVER AT THE STATION — {self.escalation['reason']}. "
+                + (
+                    f"{len(on_time)} on-time positioning option(s) found, cheapest "
+                    f"{on_time[0]['crew_id']} at ₹{on_time[0]['cost_inr']:,.0f}: these are the "
+                    "recommendation; the delayed local options below are the fallback."
+                    if on_time
+                    else "no on-time positioning option either — only the delayed local "
+                    "options below or cancellation remain."
+                )
+            )
+        out.update(
+            {
+                "pairing_id": self.pairing_id,
+                "role": self.role,
+                "from_date": self.from_date.isoformat(),
+                "duty_dates": [d.isoformat() for d in self.dates],
+                "uncovered_flights": list(self.uncovered_flights),
+                "passengers_at_risk": self.passengers,
+                "required_report_utc": fmt_utc(self.required_report_utc),
+                "candidates_considered": len(self.options) + len(self.excluded) - 1,
+                "options": [o.to_dict() for o in self.options],
+                "expected_choice": self.expected_choice.to_dict() if self.expected_choice else None,
+                "excluded_candidates": [e.to_dict() for e in self.excluded],
+                "note": self.note,
+                "escalation": self.escalation,
+            }
+        )
+        return out
 
 
 # ---------------------------------------------------------------- cover options
@@ -171,7 +196,7 @@ def rank_cover_options(
         )
     )
     ranked = tuple(replace(o, rank=i + 1) for i, o in enumerate(options))
-    return OptionsResult(
+    result = OptionsResult(
         pairing_id=pairing.pairing_id,
         role=role,
         from_date=first.date,
@@ -186,6 +211,32 @@ def rank_cover_options(
             "seven rules over their full timeline; ranked by cost, then delay, then crew id"
         ),
     )
+    if not result.has_on_time_cover:
+        # nobody at the station can legally take it on time: who can be flown in before the
+        # departure — using where the roster actually puts people, any itinerary, no delay?
+        from crew_ops_advisor.simulation.positioning import positioning_cover
+
+        found = positioning_cover(
+            store, pairing.pairing_id, role, from_date=from_date, exclude_crew=exclude_crew
+        )
+        delayed = [o for o in ranked if o.legal and o.kind == "deadhead_callout"]
+        result = replace(
+            result,
+            escalation={
+                "reason": (
+                    f"no legal on-time cover for the {role} slot at {first.dep_station}: "
+                    + (
+                        f"the only local options delay the first departure ({len(delayed)} "
+                        "deadhead) or cancel"
+                        if delayed
+                        else "every candidate at the station is excluded"
+                    )
+                    + " — the options below fly someone in before the departure"
+                ),
+                "positioning": found.to_dict(),
+            },
+        )
+    return result
 
 
 # Headroom below which a legal option is flagged "tight" — the controller should know the
@@ -267,6 +318,18 @@ def _assess_candidate(
     if not evidence.legal:
         return Excluded(crew.crew_id, "; ".join(evidence.issues))
 
+    # advisory: the roster may put this crew member somewhere other than their base at report
+    from crew_ops_advisor.simulation.positioning import crew_position
+
+    position = crew_position(store, crew.crew_id, first.report_utc)
+    away = position.source != "base" and position.station != first.dep_station
+    location_note = (
+        f" Roster: at {position.station} ({position.source} {position.duty.label()}, free from "
+        f"{position.available_from:%H:%M}Z) — see positioning options before relying on this."
+        if away
+        else ""
+    )
+
     breakdown = {"callout": callout_cost(store.costs, crew.rank, kind)}
     delay_hours = 0.0
     action = f"Assign {crew.rank} {crew.crew_id} ({_label(kind)})"
@@ -278,6 +341,7 @@ def _assess_candidate(
             else "not rostered on the cover days, "
         )
         + f"reachable in {crew.reachability_minutes} min; all seven rules pass."
+        + location_note
     )
     if deadhead:
         base_kind = _label(kind)
@@ -318,9 +382,11 @@ def recommend_cover(
     pairing_id: str | None = None,
     from_date: date | None = None,
     reported_utc: datetime | None = None,
+    exclude_crew: tuple[str, ...] = (),
     max_options: int | None = None,
 ) -> tuple[dict[str, Any], OptionsResult]:
-    """A crew member is out: find the duty they leave uncovered and rank the covers."""
+    """A crew member is out: find the duty they leave uncovered and rank the covers.
+    `exclude_crew` are others also out in the same what-if."""
     impact = crew_removal(
         store, crew_id, from_date=from_date, reported_utc=reported_utc, pairing_id=pairing_id
     )
@@ -332,7 +398,7 @@ def recommend_cover(
         day.pairing_id,
         day.role,
         from_date=day.date,
-        exclude_crew=(crew_id,),
+        exclude_crew=(crew_id, *exclude_crew),
         max_options=max_options,
     )
     return impact.to_dict(), result

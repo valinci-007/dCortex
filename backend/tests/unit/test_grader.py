@@ -153,3 +153,16 @@ def test_indian_digit_grouping_is_one_number():
     assert check_grounding("Direct cost 250,000 INR.", corpus).ok
     assert not check_grounding("Direct cost ₹2,60,000.", corpus).ok
     assert grade("Direct cost ₹2,50,000.", {"cost": 250000}).passed
+
+
+def test_grounding_reads_rotations_and_the_controllers_own_dates():
+    from crew_ops_advisor.agent.grounding import check_grounding, evidence_corpus
+
+    corpus = evidence_corpus(
+        "Both A320 captains are sick at 00:30Z on 18 Sep — plan?",
+        [{"pairings": {"P-2211": ["DX422", "DX423", "DX424"]}}],
+    )
+    ok = check_grounding("Sick from 2026-09-18T00:30Z; P-2211 (DX422/423/424) is exposed.", corpus)
+    assert ok.ok, ok.unsupported
+    bad = check_grounding("P-2211 (DX422/423/429) at 2026-09-18T01:30Z.", corpus)
+    assert {"DX429", "2026-09-18T01:30Z"} <= set(bad.unsupported)

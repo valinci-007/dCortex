@@ -578,12 +578,10 @@ def register_query_tools(registry: ToolRegistry) -> None:
 
 def build_registry(store: Datastore) -> ToolRegistry:
     from crew_ops_advisor.tools.recommendation_tools import register_recommendation_tools
-    from crew_ops_advisor.tools.scenario_tools import register_scenario_tools
     from crew_ops_advisor.tools.simulation_tools import register_simulation_tools
 
     registry = ToolRegistry(store)
     register_query_tools(registry)
     register_simulation_tools(registry)
     register_recommendation_tools(registry)
-    register_scenario_tools(registry)
     return registry

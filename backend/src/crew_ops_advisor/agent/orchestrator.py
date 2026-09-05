@@ -49,8 +49,7 @@ from crew_ops_advisor.agent.types import (
 )
 from crew_ops_advisor.data import Datastore
 from crew_ops_advisor.domain.timeutil import fmt_utc
-from crew_ops_advisor.simulation.scenario import Scenario, ScenarioStore
-from crew_ops_advisor.tools import ToolRegistry, build_registry
+from crew_ops_advisor.tools import ToolRegistry
 
 MAX_STEPS = 8
 MAX_TOOL_CALLS = 12
@@ -123,7 +122,6 @@ class Conversation:
         *,
         session_id: str | None = None,
         prior: Sequence[tuple[str, str]] = (),
-        scenario: Scenario | None = None,
     ):
         self._advisor = advisor
         self.mode = advisor.provider.name
@@ -132,12 +130,6 @@ class Conversation:
         self.prior: tuple[tuple[str, str], ...] = tuple(prior)
         self._session: LLMSession | None = None
         self._fallback_session: LLMSession | None = None
-        # the desk's working situation for this conversation (ADR-0018 §3); the tools read
-        # the roster through it, and the scenario tools mutate it in place
-        self.scenario: Scenario = scenario or Scenario()
-        self.store = ScenarioStore(advisor.store, self.scenario)
-        self.registry = build_registry(self.store)  # raw: offline router, watchlist
-        self.model_registry = advisor.pii.wrap(self.registry)  # model-facing: scrubbed, audited
 
     def _open(self, provider) -> LLMSession:
         session = provider.open_session(self._advisor.system_prompt, self._advisor.tool_definitions)
@@ -216,13 +208,9 @@ class Advisor:
         return bool(getattr(self.provider, "owns_loop", False))
 
     def new_conversation(
-        self,
-        *,
-        session_id: str | None = None,
-        prior: Sequence[tuple[str, str]] = (),
-        scenario: Scenario | None = None,
+        self, *, session_id: str | None = None, prior: Sequence[tuple[str, str]] = ()
     ) -> Conversation:
-        return Conversation(self, session_id=session_id, prior=prior, scenario=scenario)
+        return Conversation(self, session_id=session_id, prior=prior)
 
     def ask(
         self,
@@ -454,7 +442,7 @@ class Advisor:
             run = provider.run(
                 sent,
                 system=self.system_prompt,
-                registry=conversation.model_registry,
+                registry=self.model_registry,
                 resume=conversation.session_id,
                 on_event=emit,
             )
@@ -480,7 +468,7 @@ class Advisor:
             run = provider.run(
                 sent,
                 system=self.system_prompt,
-                registry=conversation.model_registry,
+                registry=self.model_registry,
                 resume=None,
                 on_event=emit,
             )
@@ -522,7 +510,7 @@ class Advisor:
         usage: dict[str, int] = {}
         # the offline router is local code: raw registry, nothing to audit or scrub
         model_facing = "offline" not in mode
-        registry = conversation.model_registry if model_facing else conversation.registry
+        registry = self.model_registry if model_facing else self.registry
         sent = question
         if model_facing:
             sent, _ = self.pii.scrub_text(question)
@@ -698,6 +686,7 @@ TOOL_ACTIONS: dict[str, str] = {
     "draft_callout_notification": "drafting the callout notification",
     "morning_briefing": "compiling the morning briefing",
     "watchlist": "compiling the watchlist",
+    "positioning_options": "searching for crew who can be flown in",
 }
 
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 ID_RE = re.compile(r"\b(?:RULE-[A-Z]+-\d{2}|[CP]-\d{4}|DX\d{3}|VT-[A-Z]{3})\b")
+ROTATION_RE = re.compile(r"\bDX(\d{3})((?:/\d{3})+)\b")
 DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?Z?)?")
 NUMBER_RE = re.compile(r"(?<![\w.-])(\d{1,3}(?:,\d{3})+|\d+\.\d+|\d+)(?![\w.]*\d)")
 DURATION_RE = re.compile(r"\b\d+h\d{2}m\b")
@@ -41,12 +42,45 @@ class GroundingResult:
 def evidence_corpus(
     question: str, tool_results: Iterable[dict[str, Any] | None], constants: Iterable[str] = ()
 ) -> str:
-    parts = [question]
+    parts = [question, question_iso_forms(question)]
     for r in tool_results:
         if r:
             parts.append(json.dumps(r, default=str))
     parts.extend(constants)
     return _normalise("\n".join(parts))
+
+
+_MONTHS = {
+    m: i + 1
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+    )
+}
+_TEXT_DATE_RE = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
+    r"(?:\s+(\d{4}))?\b",
+    re.I,
+)
+_TIME_RE = re.compile(r"\b(\d{1,2}):(\d{2})\s*Z\b", re.I)
+
+
+def question_iso_forms(question: str, *, year: int = 2026) -> str:
+    """The dates and times a controller typed, in the ISO forms the answer may echo them in:
+    '00:30Z on 18 Sep' is evidence for 2026-09-18, 2026-09-18T00:30Z and 2026-09-18T00:30:00Z."""
+    dates = []
+    for m in _TEXT_DATE_RE.finditer(question):
+        try:
+            y = int(m[3]) if m[3] else year
+            dates.append(f"{y:04d}-{_MONTHS[m[2][:3].lower()]:02d}-{int(m[1]):02d}")
+        except (KeyError, ValueError):
+            continue
+    dates += re.findall(r"\b\d{4}-\d{2}-\d{2}\b", question)
+    times = [f"{int(h):02d}:{mm}" for h, mm in _TIME_RE.findall(question)]
+    forms = list(dates)
+    for d in dates:
+        for t in times:
+            forms += [f"{d}T{t}Z", f"{d}T{t}:00Z"]
+    return " ".join(forms)
 
 
 # 2,50,000 (lakh grouping, how INR is written) and 250,000 are the same figure
@@ -101,6 +135,12 @@ def check_grounding(answer_text: str, corpus: str) -> GroundingResult:
         if m.group().upper() not in corpus.upper():
             unsupported.append(m.group())
 
+    for m in ROTATION_RE.finditer(body):  # DX422/423/424 — each part is a flight id
+        for part in m.group(2).strip("/").split("/"):
+            checked += 1
+            if f"DX{part}" not in corpus.upper():
+                unsupported.append(f"DX{part}")
+
     for m in DATE_RE.finditer(body):
         checked += 1
         if not _timestamp_in(corpus, m.group()):
@@ -112,7 +152,8 @@ def check_grounding(answer_text: str, corpus: str) -> GroundingResult:
             unsupported.append(m.group())
 
     # numbers: skip anything already inside an id/date/duration/time, and small counts
-    scrubbed = ID_RE.sub(" ", body)
+    scrubbed = ROTATION_RE.sub(" ", body)
+    scrubbed = ID_RE.sub(" ", scrubbed)
     scrubbed = DATE_RE.sub(" ", scrubbed)
     scrubbed = DURATION_RE.sub(" ", scrubbed)
     scrubbed = re.sub(r"\b\d{1,2}:\d{2}\b", " ", scrubbed)
