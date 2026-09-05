@@ -22,6 +22,7 @@ Every significant decision gets an entry: context → options considered → dec
 | [ADR-0014](#adr-0014) | Identity, confidentiality and prompt-injection guardrails at prompt, orchestrator and router level | **Accepted** | 2026-09-04 |
 | [ADR-0015](#adr-0015) | Separate `backend/` and `frontend/` projects; persistent conversations without a user model | **Accepted** | 2026-09-04 |
 | [ADR-0016](#adr-0016) | Voice interface with configurable speech providers (local Whisper now, Sarvam AI at the event, browser fallback) | **Accepted** | 2026-09-04 |
+| [ADR-0017](#adr-0017) | PII minimisation at the tool boundary (`CREW_OPS_PII_MODE=minimal`) with a console audit trail of everything sent to the model | **Accepted** | 2026-09-05 |
 
 ---
 
@@ -419,6 +420,40 @@ accuracy on crew ids ("C-1042", "P-2291") is untested at scale — the transcrip
 before or as it is sent so the controller can correct it. Sarvam's request shapes follow
 their public API and are covered by tests with a fake HTTP layer; a live check is the
 first thing to do when the key arrives.
+
+---
+
+## ADR-0017 — PII minimisation at the tool boundary, with an audit console
+**Status: Accepted** (Rajesh asked for demonstrable proof, 2026-09-05)
+
+**Context.** The brief awards Technical Excellence credit for commentary on handling crew PII
+in production. Commentary alone is a promise; judges can be shown a control. Every tool result
+carries crew names next to health-adjacent data (medical and licence expiry dates), and in the
+default configuration all of it goes to the model provider.
+
+**Decision.** `CREW_OPS_PII_MODE=minimal` removes direct identifiers before anything leaves the
+machine: a `PiiGuard` drops `name`/`crew_name` from any record carrying a `crew_id`, replaces
+known crew names with their crew id inside free text (tool results and the controller's own
+question; a name shared by two crew members becomes "[crew member]" rather than a guess), and
+is applied through a registry wrapper (`ScrubbedRegistry`) that only the model-facing providers
+are handed — the Agent SDK's MCP tools and the client-SDK loop alike. The offline router is
+local code and keeps the raw registry. The trace, the grounding check and the stored chat all
+hold the scrubbed data; the browser joins names back from `/api/directory` (which production
+would put behind the controller's authorisation). An audit logger prints to the server console,
+per question: the exact system prompt (in full on first send, then its fingerprint), the user
+message as typed and as sent, every tool result before and after the scrub with a count of
+identifiers removed, and the model's reply. `CREW_OPS_AUDIT_LOG=0|1|full`.
+
+**Options considered.** Scrubbing inside every tool (33 edits, easy to miss one); scrubbing in
+the serialisers (would also blind the offline router's templates and the UI); a redaction proxy
+in front of the provider (would have to parse provider-specific wire formats). One wrapper at
+the typed tool boundary is the only place that sees every result on its way to any model.
+
+**Consequences.** Default stays `full` so the eval baselines are unchanged; with `minimal`
+the model reasons over pseudonyms, which costs nothing on the sample questions (they use ids).
+What remains pseudonymised rather than removed — certificate dates, reachability, risk
+scores — is what the desk's questions are about. The audit console is verbose by design and
+should be silenced (`=0`) outside demos and review.
 
 ---
 

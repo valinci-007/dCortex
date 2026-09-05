@@ -161,6 +161,7 @@ def create_app(
             "version": __version__,
             "provider": advisor.provider.name,
             "fallback": advisor.fallback.name if advisor.fallback else None,
+            "pii_mode": advisor.pii.mode,
             "snapshot_utc": fmt_utc(store.snapshot_utc),
         }
 
@@ -173,6 +174,7 @@ def create_app(
         dates = sorted({f.date for f in store.flights.list()})
         return {
             "snapshot_utc": fmt_utc(store.snapshot_utc),
+            "pii_mode": advisor.pii.mode,
             "today": store.snapshot_utc.date().isoformat(),
             "week": {"start": dates[0].isoformat(), "end": dates[-1].isoformat()},
             "stations": store.flights.stations(),
@@ -243,6 +245,12 @@ def create_app(
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     # ---- voice ---------------------------------------------------------------
+
+    @app.get("/api/directory")
+    def directory() -> dict[str, str]:
+        """Crew id → name, joined client-side so names never travel with the model traffic
+        (ADR-0017). In production this sits behind the controller's own authorisation."""
+        return dict(advisor.pii.directory)
 
     @app.get("/api/voice")
     def voice() -> dict[str, Any]:

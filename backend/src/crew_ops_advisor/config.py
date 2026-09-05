@@ -20,6 +20,7 @@ class Settings:
     llm_effort: str  # low | medium | high | xhigh | max
     offline_fallback: bool  # answer via the offline router if the model provider fails
     agent_max_budget_usd: float | None  # per-question cost cap for the Agent SDK (API-key billing)
+    pii_mode: str  # full | minimal — minimal: no crew names leave the machine (ADR-0017)
     # voice (ADR-0016)
     stt_provider: str  # whisper | sarvam | browser
     tts_provider: str  # browser | sarvam
@@ -48,6 +49,7 @@ class Settings:
             llm_effort=env.get("CREW_OPS_LLM_EFFORT", "medium"),
             offline_fallback=env.get("CREW_OPS_OFFLINE_FALLBACK", "1") not in ("0", "false", "no"),
             agent_max_budget_usd=_optional_float(env.get("CREW_OPS_AGENT_MAX_BUDGET_USD", "0.50")),
+            pii_mode=env.get("CREW_OPS_PII_MODE", "full").strip().lower(),
             stt_provider=env.get("CREW_OPS_STT_PROVIDER", "whisper"),
             tts_provider=env.get("CREW_OPS_TTS_PROVIDER", "browser"),
             whisper_model=env.get("CREW_OPS_WHISPER_MODEL", "base"),

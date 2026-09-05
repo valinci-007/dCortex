@@ -148,3 +148,18 @@ def test_voice_endpoints_report_browser_side_providers(db_path, tmp_path):
         == 501
     )
     assert c.post("/api/speak", json={"text": "hi"}).status_code == 501
+
+
+def test_directory_and_pii_mode_are_exposed_for_client_side_name_joins(db_path, tmp_path):
+    settings = dataclasses.replace(
+        Settings.from_env(),
+        db_path=db_path,
+        chats_db_path=tmp_path / "c.db",
+        llm_provider="offline",
+        pii_mode="minimal",
+    )
+    c = TestClient(create_app(settings))
+    assert c.get("/api/health").json()["pii_mode"] == "minimal"
+    assert c.get("/api/context").json()["pii_mode"] == "minimal"
+    directory = c.get("/api/directory").json()
+    assert len(directory) == 150 and directory["C-1042"]

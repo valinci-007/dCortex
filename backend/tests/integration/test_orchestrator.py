@@ -327,3 +327,36 @@ def test_grounding_accepts_a_timestamp_written_without_seconds():
     corpus = "earliest_report: 2026-09-17T03:30:00Z min_rest_hours 12"
     assert check_grounding("Earliest report: 2026-09-17T03:30Z.", corpus).unsupported == ()
     assert "2026-09-17T03:45Z" in check_grounding("Report 2026-09-17T03:45Z.", corpus).unsupported
+
+
+def test_minimal_pii_mode_hides_names_from_the_model_but_not_from_the_offline_router(
+    store, registry
+):
+    from crew_ops_advisor.agent.pii import PiiGuard
+
+    guard = PiiGuard(store, "minimal")
+    crew_id = next(i for i, n in guard.directory.items() if n in guard._id_for_name)
+    name = guard.directory[crew_id]
+    turns = [
+        Turn(text="", tool_calls=[ToolCall("t1", "get_crew", {"crew_id": crew_id})]),
+        Turn(text=f"{crew_id} is based at BLR.\n\nReasoning:\n- crew record for {crew_id}"),
+    ]
+    advisor, provider = advisor_with(store, registry, turns)
+    advisor.pii = guard
+    advisor.model_registry = guard.wrap(registry)
+    answer = advisor.ask(f"Where is {name} based?")
+    # the model saw the id, never the name — in the question and in the tool result
+    assert provider.session.sent_user[0] == f"Where is {crew_id} based?"
+    assert name not in provider.session.sent_results[0][0].content
+    assert crew_id in provider.session.sent_results[0][0].content
+    # the trace (audit view / stored chat) carries the scrubbed result too
+    tool = next(s for s in answer.trace if s.kind == "tool")
+    assert "name" not in tool.result
+    assert answer.question == f"Where is {name} based?"  # the controller's own words are kept
+
+    # the offline router is local code and keeps names in its answers
+    from crew_ops_advisor.agent import OfflineProvider
+
+    offline = Advisor(store, registry, OfflineProvider(store), pii=guard)
+    text = offline.ask(f"What is {crew_id} base and rating?").text
+    assert name in text

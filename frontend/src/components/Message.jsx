@@ -63,7 +63,13 @@ function ReadAloud({ text, voice }) {
   );
 }
 
-export default function Message({ message, voice }) {
+/** "C-1042" → "C-1042 (A. Nair)" using the local directory — the name never went to the model. */
+function joinNames(text, directory) {
+  if (!directory) return text;
+  return text.replace(/\bC-\d{4}\b(?!\s*\()/g, (id) => (directory[id] ? `${id} (${directory[id]})` : id));
+}
+
+export default function Message({ message, voice, directory }) {
   const [showTrace, setShowTrace] = useState(false);
   if (message.role === "user") {
     return (
@@ -80,7 +86,9 @@ export default function Message({ message, voice }) {
     );
   }
   const a = message.answer;
-  const { answer, reasoning } = splitReasoning(a.answer || "");
+  const { answer: rawAnswer, reasoning: rawReasoning } = splitReasoning(a.answer || "");
+  const answer = joinNames(rawAnswer, directory);
+  const reasoning = joinNames(rawReasoning, directory);
   const grounding = a.grounding;
   const fallback = Boolean(a.fallback_reason);
   const offline = a.mode.includes("offline");
@@ -92,6 +100,11 @@ export default function Message({ message, voice }) {
             {fallback ? "offline fallback" : offline ? "offline mode" : "AI-assisted"}
           </span>
           {a.refused && <span className="badge warn">declined to answer</span>}
+          {directory && !offline && (
+            <span className="badge good" title="Crew names were removed before the question and data reached the model; they are joined back here from the local directory.">
+              names never sent to model
+            </span>
+          )}
           {a.error && <span className="badge bad">error</span>}
           {a.redactions && a.redactions.length > 0 && (
             <span className="badge warn" title={`removed: ${a.redactions.join(", ")}`}>

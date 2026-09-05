@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -239,6 +240,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    # the audit console (what is sent to the model) is for a person watching one question at a
+    # time; an eval run of 38 questions would drown its own report unless asked for explicitly
+    if args.command == "eval" and "CREW_OPS_AUDIT_LOG" not in os.environ:
+        os.environ["CREW_OPS_AUDIT_LOG"] = "0"
     try:
         return args.func(args, _settings(args))
     except (NotFoundError, ValueError) as exc:

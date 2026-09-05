@@ -49,6 +49,7 @@ export const api = {
     return res.blob();
   },
   health: () => request("/api/health"),
+  directory: () => request("/api/directory"),
   context: () => request("/api/context"),
   tools: () => request("/api/tools"),
   chats: () => request("/api/chats"),

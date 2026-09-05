@@ -40,6 +40,11 @@ export default function Header({
             snapshot {context.snapshot_utc}
           </span>
         )}
+        {context?.pii_mode === "minimal" && (
+          <span className="badge good" title="PII minimal: crew names never leave this machine — the model sees ids; names are joined in the browser">
+            PII: minimal
+          </span>
+        )}
         <button className="link" onClick={onToggleSamples} title="Sample questions by tier">
           {samplesOpen ? "hide samples" : "sample questions"}
         </button>

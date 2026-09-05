@@ -10,6 +10,7 @@ from crew_ops_advisor.agent.orchestrator import (
     TraceStep,
     render_trace,
 )
+from crew_ops_advisor.agent.pii import PiiGuard
 from crew_ops_advisor.agent.prompts import REFUSAL_PHRASE, build_system_prompt
 from crew_ops_advisor.agent.types import (
     LLMError,
@@ -66,7 +67,13 @@ def make_advisor(
     fallback = None
     if settings.offline_fallback and provider.name != "offline":
         fallback = OfflineProvider(store)
-    return Advisor(store, build_registry(store), provider, fallback=fallback)
+    return Advisor(
+        store,
+        build_registry(store),
+        provider,
+        fallback=fallback,
+        pii=PiiGuard(store, settings.pii_mode),
+    )
 
 
 __all__ = [
@@ -82,6 +89,7 @@ __all__ = [
     "LoopRun",
     "OfflineProvider",
     "PROVIDERS",
+    "PiiGuard",
     "ToolCall",
     "ToolResult",
     "TraceStep",

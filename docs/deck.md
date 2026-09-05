@@ -137,8 +137,10 @@ Delay recovery. Callout notification drafts. Morning briefing.
 
 # Production path
 
-- **PII:** the model never needs names — tools return ids, the UI joins names from an
-  authorised directory; redaction, audit logs (the trace already exists), residency.
+- **PII:** medical dates are health data. Built: `CREW_OPS_PII_MODE=minimal` — the model
+  never sees a name (ids only; the browser joins names), and the console audits every prompt
+  and tool result before/after the scrub. Also: model sandboxed to our tools, fully local,
+  speech on-device, chats deletable. Production adds role-based access, retention, redaction.
 - **Scale:** the model sees tool results, not the dataset; SQLite becomes the crew-tracking
   and roster systems behind the same repository interfaces; the core is stateless.
 - **Latency:** stream partial answers; cap tool-result size on Tier 3; effort tuning.

@@ -172,17 +172,78 @@ in the data, ignored by the organiser's validator too); the offline router is cl
 by construction; two answer-key entries are deliberately not matched (S5 pairing-own crew,
 Q33 3-leg FDP) with the reasoning recorded.
 
-## Security and PII (production note)
+## Security and PII
 
-The dataset is synthetic. In production this system would hold crew names, licence and
-medical dates and contact details — personal data under any regime. What we would change:
-role-based access at the API (controllers see their base's crew, not everyone's); **the
-model never needs PII** — tools would return crew ids and ranks and the UI would join names
-client-side from an authorised directory, so prompts, traces and provider logs carry no
-names or medical dates; redaction of any free text before it reaches the model; audit logs
-of every question, tool call and answer (the trace already exists); data residency by
-choosing the inference region and disabling provider-side retention; and eval reports,
-which today contain names, would be generated from ids only.
+The dataset is synthetic, but the shape is real: in production every record here is personal
+data, and some of it is sensitive.
+
+| Data the system holds | Sensitivity | Where it goes today |
+|---|---|---|
+| Crew name, rank, base, seniority | Personal data | Tool results → model provider; stored in chat history; eval reports (committed, synthetic) |
+| Reachability (minutes to reach) | Personal — implies location/availability | Tool results → model provider; chat history |
+| Licence, medical, recurrent-training, dangerous-goods expiry dates | **Health / special category** (GDPR Art. 9; sensitive under India's DPDP Act 2023) | Tool results → model provider; chat history |
+| Per-crew disruption-risk score and drivers | Profiling-adjacent — decisions about people | Tool results → model provider; chat history |
+| Voice recordings of the controller | Biometric-adjacent | On-device with the default Whisper provider; to Sarvam's API when that provider is configured |
+| Questions typed by controllers (free text about named people) | Personal data | Model provider; chat history |
+
+**What is already in place** — these are security controls, not just conventions:
+
+- The model can reach nothing but our typed tools: the harness's own file, shell and web tools
+  are disabled, no settings or hooks are loaded from the host, and every call is budgeted
+  (ADR-0012).
+- Instructions found inside a question or a data result are treated as data (prompt
+  injection), and answers are screened for implementation disclosure before they leave
+  (ADR-0014).
+- Everything runs on the laptop: SQLite files, API, web app, speech model. No question text
+  is written to server logs; the only persistence is the conversation store, and a chat can
+  be deleted through the UI or `DELETE /api/chats/{id}` (erasure).
+- Speech-to-text is on-device by default; the cloud provider is an explicit configuration
+  choice with its own key.
+
+**Built and demonstrable — `CREW_OPS_PII_MODE=minimal` (ADR-0017).** The model never
+receives a crew name: names are dropped from every tool result and replaced by crew ids in the
+controller's question before anything leaves the machine; crew ids act as pseudonyms, and the
+browser joins the names back from `/api/directory` so the controller still reads "C-1042
+(A. Nair)". The server console prints the proof for every question — the exact system prompt
+and user message handed to the model, and each tool result **before** and **after** the scrub:
+
+```
+CREW_OPS_PII_MODE=minimal make serve          # or: CREW_OPS_PII_MODE=minimal crew-ops ask "…"
+
+[audit] MODEL INPUT → agent-sdk · PII mode: minimal
+[audit] SYSTEM PROMPT (4,559 chars, sha256 7da013b5eef8):
+You are the Crew Ops Advisor, … (full text)
+[audit] USER MESSAGE as typed:            Is P. Pillai on reserve at BLR tomorrow?
+[audit] USER MESSAGE → model:             Is C-1329 on reserve at BLR tomorrow?
+[audit] TOOL list_reserves — BEFORE PII scrub (never leaves this machine):
+{"reserves":[{"crew_id":"C-1329","name":"P. Pillai","rank":"Cabin Crew",…
+[audit] TOOL list_reserves — AFTER PII scrub → model (12 identifiers removed):
+{"reserves":[{"crew_id":"C-1329","rank":"Cabin Crew",…
+[audit] MODEL OUTPUT ← agent-sdk · 9.8s: 12 reserves at BLR tomorrow (2026-09-15) …
+```
+
+The scrub lives in one place — the registry wrapper the model-facing providers are given — so
+the reasoning trail, the grounding check and the stored conversation all hold the scrubbed
+data; the offline router is local code and keeps the raw registry. What stays: licence and
+medical dates, reachability and risk scores, because the desk's questions are about them —
+now tied to a pseudonym rather than a person. `CREW_OPS_AUDIT_LOG=full` prints tool results
+untruncated; `=0` silences the console.
+
+**What production would add** — in order of leverage:
+
+1. **Run minimal mode by default** and put `/api/directory` behind the controller's own
+   authorisation, so a name is only ever joined for someone entitled to see it.
+2. **Role-based access at the API**: controllers see their base's crew; supervisors see the
+   reasoning trail with tool arguments and results, which today is open to everyone.
+3. **Redaction of free text** (names, phone numbers) before a question reaches the model, and
+   a data-processing agreement with the model provider with zero retention and a chosen
+   inference region.
+4. **Retention policy** on the conversation store (e.g. 30 days, then ids only), and
+   audit logs of every question, tool call and answer — the trace already exists per answer,
+   it would move to an append-only store.
+5. **Eval reports generated from ids only**, so pass-rate history can be shared without
+   names; **voice recordings never stored** (today they are transcribed in memory and
+   discarded) and controller consent shown before cloud transcription is enabled.
 
 ## Scalability (reasoned)
 

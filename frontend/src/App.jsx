@@ -44,6 +44,7 @@ export default function App() {
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // narrow windows: slide-in panel
   const [voice, setVoice] = useState(null);
+  const [directory, setDirectory] = useState(null); // crew id → name, joined locally (PII minimal mode)
   const bottomRef = useRef(null);
 
   const refreshChats = useCallback(async () => {
@@ -77,7 +78,15 @@ export default function App() {
 
   useEffect(() => {
     api.health().then(setHealth).catch((e) => setError(`API unreachable: ${e.message}`));
-    api.context().then(setContext).catch(() => {});
+    api
+      .context()
+      .then((ctx) => {
+        setContext(ctx);
+        // In minimal PII mode the model only ever sees crew ids; names are joined here, in
+        // the controller's browser, from the local directory.
+        if (ctx.pii_mode === "minimal") api.directory().then(setDirectory).catch(() => {});
+      })
+      .catch(() => {});
     api.voice().then(setVoice).catch(() => {});
     refreshChats();
   }, [refreshChats]);
@@ -198,7 +207,7 @@ export default function App() {
               </div>
             )}
             {messages.map((m, i) => (
-              <Message key={i} message={m} voice={voice} />
+              <Message key={i} message={m} voice={voice} directory={directory} />
             ))}
             {busy && (
               <div className="thinking">

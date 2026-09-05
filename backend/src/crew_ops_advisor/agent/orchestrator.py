@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
+from crew_ops_advisor.agent import audit
 from crew_ops_advisor.agent.disclosure import find_disclosures, humanise_sources, redact
 from crew_ops_advisor.agent.grounding import (
     GroundingResult,
@@ -29,6 +30,7 @@ from crew_ops_advisor.agent.grounding import (
     evidence_corpus,
     rulebook_constants,
 )
+from crew_ops_advisor.agent.pii import PiiGuard
 from crew_ops_advisor.agent.prompts import REFUSAL_PHRASE, build_system_prompt
 from crew_ops_advisor.agent.types import (
     LLMError,
@@ -166,12 +168,17 @@ class Advisor:
         fallback: LLMProvider | None = None,
         max_tier: int | None = None,
         grounding_retry: bool = True,
+        pii: PiiGuard | None = None,
     ):
         self.store = store
         self.registry = registry
         self.provider = provider
         self.fallback = fallback
         self.grounding_retry = grounding_retry
+        # what the model-facing providers get: the same tools, results scrubbed per the PII
+        # mode and written to the audit console (ADR-0017); the offline router keeps `registry`
+        self.pii = pii or PiiGuard(store, "full")
+        self.model_registry = self.pii.wrap(registry)
         self.system_prompt = build_system_prompt(store)
         self.tool_definitions = registry.definitions(max_tier=max_tier)
         # facts the model may cite from its own context: rulebook parameters and the session's
@@ -392,11 +399,20 @@ class Advisor:
     ) -> Answer:
         provider: LoopProvider = self.provider  # type: ignore[assignment]
         resumed_note: TraceStep | None = None
+        sent, _ = self.pii.scrub_text(question)
+        audit.model_input(
+            provider.name,
+            self.system_prompt,
+            sent,
+            as_typed=question,
+            pii_mode=self.pii.mode,
+            session_id=conversation.session_id,
+        )
         try:
             run = provider.run(
-                question,
+                sent,
                 system=self.system_prompt,
-                registry=self.registry,
+                registry=self.model_registry,
                 resume=conversation.session_id,
             )
         except LLMError as exc:
@@ -413,14 +429,22 @@ class Advisor:
                 f"stored session could not be resumed ({exc}); continued with a recap",
             )
             conversation.session_id = None
+            recap = conversation.context_prefix(question)
+            sent, _ = self.pii.scrub_text(recap)
+            audit.model_input(
+                provider.name, self.system_prompt, sent, as_typed=recap, pii_mode=self.pii.mode
+            )
             run = provider.run(
-                conversation.context_prefix(question),
+                sent,
                 system=self.system_prompt,
-                registry=self.registry,
+                registry=self.model_registry,
                 resume=None,
             )
         conversation.session_id = run.session_id or conversation.session_id
         text = run.text.strip() or f"{REFUSAL_PHRASE}: the model returned no answer."
+        audit.model_output(
+            provider.name, text, elapsed_ms=round((time.perf_counter() - started) * 1000, 1)
+        )
         refused = run.refused or text.lower().startswith(REFUSAL_PHRASE.lower())
         trace = ((resumed_note,) if resumed_note else ()) + run.trace
         return self._answer(
@@ -450,7 +474,16 @@ class Advisor:
         mode = mode or self.provider.name
         trace: list[TraceStep] = []
         usage: dict[str, int] = {}
-        turn = self._llm(session.send_user, question, trace, usage, label="plan")
+        # the offline router is local code: raw registry, nothing to audit or scrub
+        model_facing = "offline" not in mode
+        registry = self.model_registry if model_facing else self.registry
+        sent = question
+        if model_facing:
+            sent, _ = self.pii.scrub_text(question)
+            audit.model_input(
+                mode, self.system_prompt, sent, as_typed=question, pii_mode=self.pii.mode
+            )
+        turn = self._llm(session.send_user, sent, trace, usage, label="plan")
         steps, tool_calls = 0, 0
         while turn.wants_tools:
             steps += 1
@@ -467,11 +500,15 @@ class Advisor:
                     error=None,
                     fallback_reason=fallback_reason,
                 )
-            results = self._run_tools(turn, trace)
+            results = self._run_tools(turn, trace, registry)
             tool_calls += len(results)
             turn = self._llm(session.send_tool_results, results, trace, usage, label="compose")
         text = turn.text.strip() or f"{REFUSAL_PHRASE}: the model returned no answer."
         refused = turn.refused or text.lower().startswith(REFUSAL_PHRASE.lower())
+        if model_facing:
+            audit.model_output(
+                mode, text, elapsed_ms=round((time.perf_counter() - started) * 1000, 1)
+            )
         return self._answer(
             question,
             started,
@@ -504,10 +541,11 @@ class Advisor:
         )
         return turn
 
-    def _run_tools(self, turn: Turn, trace: list[TraceStep]) -> list[ToolResult]:
+    def _run_tools(self, turn: Turn, trace: list[TraceStep], registry=None) -> list[ToolResult]:
+        registry = registry or self.registry
         results: list[ToolResult] = []
         for call in turn.tool_calls:
-            outcome = self.registry.call(call.name, call.arguments)
+            outcome = registry.call(call.name, call.arguments)
             trace.append(tool_step(call.name, call.arguments, outcome))
             results.append(
                 ToolResult(call_id=call.id, content=outcome.content(), is_error=not outcome.ok)
