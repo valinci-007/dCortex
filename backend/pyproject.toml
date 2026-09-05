@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crew-ops-advisor"
+version = "0.1.0"
+description = "dCortex Agentic Crew Ops Advisor — conversational, explainable crew-control assistant over a deterministic rules core"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+llm = ["anthropic>=1.0"]
+agent = ["claude-agent-sdk>=0.2"]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
+voice = ["faster-whisper>=1.1", "av>=11"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+crew-ops = "crew_ops_advisor.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+crew_ops_advisor = ["data/schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# answer templates and the markdown report renderer are long f-strings by nature
+"src/crew_ops_advisor/agent/offline_provider.py" = ["E501"]
+"src/crew_ops_advisor/agent/offline_t2.py" = ["E501"]
+"src/crew_ops_advisor/agent/offline_t3.py" = ["E501"]
+"src/crew_ops_advisor/simulation/options.py" = ["E501"]
+"src/crew_ops_advisor/evals/harness.py" = ["E501"]
+# test fixtures quote answer-key strings and prompts verbatim
+"tests/**" = ["E501"]
